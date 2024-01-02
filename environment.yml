@@ -1,0 +1,26 @@
+name: mitofinder-dev
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python >=3.12
+  - pandas
+  - pip
+  - bioconda::blast
+  - bioconda::idba
+  - bioconda::infernal
+  - bioconda::megahit
+  - bioconda::spades
+  - bioconda::trnascan-se
+  - conda-forge::openjdk
+  - pip:
+      - biopython
+      - black
+      - build
+      - flake8
+      - isort
+      - mypy
+      - Ruff
+      - setuptools_scm
+      - twine
