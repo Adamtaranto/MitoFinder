@@ -779,7 +779,7 @@ def geneCheck(
 def createImageOfAnnotation(sequenceObject, outputFile):
     """Creates an image of the annotation, with relative positions of features and their size"""
     try:
-        import ImageFont, Image, ImageDraw
+        from PIL import ImageFont, Image, ImageDraw
     except:
         print("")
         print(
