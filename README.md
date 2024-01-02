@@ -1,41 +1,69 @@
-# MitoFinder version 1.4.1		
-Allio, R., Schomaker-Bastos, A., Romiguier, J., Prosdocimi, F., Nabholz, B., & Delsuc, F. (2020) Mol Ecol Resour. 20, 892-905. ([publication link](https://doi.org/10.1111/1755-0998.13160))
+<a href="https://opensource.org/licenses/MIT">
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" align="left" height="20"/>
+</a> 
 
 <p align="center">
   <img src="/image/logo.png" alt="Drawing" width="250"/>
 </p>
 
-**Mitofinder** is a pipeline to **assemble** mitochondrial genomes and **annotate** mitochondrial genes from trimmed 
-read sequencing data.
+# MitoFinder	
+
+**Mitofinder** is a pipeline to **assemble** mitochondrial genomes from short-reads and **annotate** mitochondrial genes.
   
-**MitoFinder** is also designed to **find** and **annotate** mitochondrial sequences in existing genomic assemblies (generated from Hifi/PacBio/Nanopore/Illumina sequencing data...)  
+**MitoFinder** is also designed to **find** and **annotate** mitochondrial sequences in existing genomic assemblies generated from PacBio/Nanopore/Illumina sequencing data.
   
-**MitoFinder** is distributed under the [license](https://github.com/RemiAllio/MitoFinder/blob/master/License/LICENSE).  
+Allio, R., Schomaker‐Bastos, A., Romiguier, J., Prosdocimi, F., Nabholz, B., & Delsuc, F. (2020). [MitoFinder: Efficient automated large‐scale extraction of mitogenomic data in target enrichment phylogenomics.](https://doi.org/10.1111/1755-0998.13160) Molecular Ecology Resources, 20(4), 892-905.
   
 # Requirements
 
-This software is suitable for all linux-like systems with ```automake```, ```autoconf```, ```gcc``` (Unfortunately not Windows < v.10) or [Singularity version >= 3.0](https://sylabs.io/guides/3.0/user-guide/quick_start.html) installed.
-The pipeline is mainly written in **python 2.7**.
+This software is suitable for all linux-like systems with ```automake```, ```autoconf```, ```gcc``` (Unfortunately not Windows < v.10) or [Singularity version >= 3.0](https://sylabs.io/guides/3.0/user-guide/quick_start.html).
+
+The package is compatible with Python versions >3.7
 
 # Table of content
 
-1. [Installation guide for MitoFinder](#installation-guide-for-mitofinder)
-	- [Linux](#get-and-install-mitofinder-linux)
-	- [Using Singularity version >=3.0](#run-mitofinder-with-singularity)
-	- [MAC](#get-mitofinder-and-install-dependencies-mac-os)
-2. [How to use MitoFinder](#how-to-use-mitofinder)
-	- [Mitochondrial genome assembly and annotation](#mitochondrial-genome-assembly-and-annotation)
-	- [Find and/or annotate a mitochondrial genome](#find-andor-annotate-a-mitochondrial-genome)
-	- [Restart](#restart)
-	- [Test cases](#test-cases)
-3. [Detailed options](#detailed-options)
-4. [INPUT FILES](#input-files)
-5. [OUTPUT FILES](#output-files)
-6. [Particular cases](#particular-cases)
-7. [UCE annotation](#uce-annotation)
-8. [How to cite MitoFinder](#how-to-cite-mitofinder)
-9. [How to get reference mitochondrial genomes from ncbi](#how-to-get-reference-mitochondrial-genomes-from-ncbi)
-10. [How to submit your annotated mitochondrial genome(s) to GenBank NCBI](#how-to-submit-your-annotated-mitochondrial-genomes-to-ncbi-genbank)
+- [MitoFinder](#mitofinder)
+- [Requirements](#requirements)
+- [Table of content](#table-of-content)
+- [Installation guide for MitoFinder](#installation-guide-for-mitofinder)
+  - [Get and install MitoFinder (Linux)](#get-and-install-mitofinder-linux)
+    - [Add MitoFinder to your path](#add-mitofinder-to-your-path)
+  - [Run MitoFinder with Singularity](#run-mitofinder-with-singularity)
+    - [Add MitoFinder's container to your path](#add-mitofinders-container-to-your-path)
+  - [Get MitoFinder and install dependencies (Mac OS)](#get-mitofinder-and-install-dependencies-mac-os)
+    - [Get MitoFinder](#get-mitofinder)
+    - [Install dependencies](#install-dependencies)
+    - [BLAST](#blast)
+    - [Assemblers](#assemblers)
+    - [tRNA annotation](#trna-annotation)
+- [How to use MitoFinder](#how-to-use-mitofinder)
+    - [Assembler](#assembler)
+    - [tRNA annotation step](#trna-annotation-step)
+  - [Mitochondrial genome assembly and annotation](#mitochondrial-genome-assembly-and-annotation)
+    - [Trimmed paired-end reads](#trimmed-paired-end-reads)
+    - [Trimmed single-end reads](#trimmed-single-end-reads)
+  - [Find and/or annotate a mitochondrial genome](#find-andor-annotate-a-mitochondrial-genome)
+  - [Restart](#restart)
+  - [Test cases](#test-cases)
+- [Detailed options](#detailed-options)
+- [INPUT FILES](#input-files)
+- [OUTPUT FILES](#output-files)
+    - [Results' folder](#results-folder)
+- [Particular cases](#particular-cases)
+  - [Annotation of mitochondrial genes containing intron(s)](#annotation-of-mitochondrial-genes-containing-introns)
+  - [Annotation of NUMTs](#annotation-of-numts)
+- [UCE annotation](#uce-annotation)
+- [How to cite MitoFinder](#how-to-cite-mitofinder)
+- [HOW TO GET REFERENCE MITOCHONDRIAL GENOMES FROM NCBI](#how-to-get-reference-mitochondrial-genomes-from-ncbi)
+  - [Using the NCBI web interface](#using-the-ncbi-web-interface)
+  - [Using entrez-direct utilities](#using-entrez-direct-utilities)
+- [How to submit your annotated mitochondrial genome(s) to NCBI GenBank](#how-to-submit-your-annotated-mitochondrial-genomes-to-ncbi-genbank)
+  - [Submission with BankIt](#submission-with-bankit)
+  - [Submission with tbl2asn](#submission-with-tbl2asn)
+    - [Creating a compatible FASTA file](#creating-a-compatible-fasta-file)
+      - [INPUT](#input)
+      - [OUTPUT](#output)
+    - [Command line to run tbl2asn](#command-line-to-run-tbl2asn)
 
 # Installation guide for MitoFinder
 
@@ -429,7 +457,7 @@ optional arguments:
                         Mitochondrial Code 24. Pterobranchia Mitochondrial
                         Code 25. Candidate Division SR1 and Gracilibacteria
                         Code
-  -v, --version         Version 1.4.1
+  -v, --version         Print the version.
   --example             Print getting started examples
   --citation            How to cite MitoFinder
 ```
