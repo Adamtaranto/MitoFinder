@@ -2,11 +2,11 @@
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg" align="left" height="20"/>
 </a> 
 
+# MitoFinder
+
 <p align="center">
   <img src="/image/logo.png" alt="Drawing" width="250"/>
 </p>
-
-# MitoFinder	
 
 **Mitofinder** is a pipeline to **assemble** mitochondrial genomes from short-reads and **annotate** mitochondrial genes.
   
