@@ -1,7 +1,3 @@
-#!/usr/bin/python
-# Author: Alex Schomaker - alexschomaker@ufrj.br
-# LAMPADA - IBQM - UFRJ
-
 from mitofinder.tRNAscanChecker import tRNAconvert, prettyRNAName
 import mitofinder.genbankOutput as genbankOutput
 import mitofinder.tRNAscanChecker as tRNAscanChecker
@@ -356,7 +352,7 @@ def geneCheck(
 def createImageOfAnnotation(sequenceObject, outputFile):
     """Creates an image of the annotation, with relative positions of features and it's size"""
     try:
-        import ImageFont, Image, ImageDraw
+        from PIL import ImageFont, Image, ImageDraw
     except:
         print("")
         print(
