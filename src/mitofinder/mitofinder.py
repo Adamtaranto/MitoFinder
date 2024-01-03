@@ -1,15 +1,18 @@
-#!/usr/bin/python
-# Authors: Allio Remi & Schomaker-Bastos Alex
-# ISEM - CNRS - LAMPADA - IBQM - UFRJ
-
-
 from mitofinder._version import __version__
+from mitofinder.utils import (
+    is_avail,
+    is_java_installed,
+    find_duplicates,
+    check_files,
+    get_abs_if_found,
+    setup_directory,
+)
 from mitofinder import (
-    geneChecker,
-    genbankOutput,
-    runMegahit,
     circularizationCheck,
+    genbankOutput,
+    geneChecker,
     runIDBA,
+    runMegahit,
     runMetaspades,
 )
 
@@ -51,6 +54,58 @@ class SmartFormatter(argparse.HelpFormatter):
         return argparse.HelpFormatter._split_lines(self, text, width)
 
 
+translation_table = """
+Organism genetic code following NCBI table (integer):
+1. The Standard Code
+2. The Vertebrate Mitochondrial Code
+3. The Yeast Mitochondrial Code
+4. The Mold, Protozoan, and Coelenterate Mitochondrial Code and the Mycoplasma/Spiroplasma Code
+5. The Invertebrate Mitochondrial Code
+6. The Ciliate, Dasycladacean and Hexamita Nuclear Code
+9. The Echinoderm and Flatworm Mitochondrial Code
+10. The Euplotid Nuclear Code
+11. The Bacterial, Archaeal and Plant Plastid Code
+12. The Alternative Yeast Nuclear Code
+13. The Ascidian Mitochondrial Code
+14. The Alternative Flatworm Mitochondrial Code
+16. Chlorophycean Mitochondrial Code
+21. Trematode Mitochondrial Code
+22. Scenedesmus obliquus Mitochondrial Code
+23. Thraustochytrium Mitochondrial Code
+24. Pterobranchia Mitochondrial Code
+25. Candidate Division SR1 and Gracilibacteria Code
+"""
+code_dict = {
+    1: "1. The Standard Code",
+    2: "2. The Vertebrate Mitochondrial Code",
+    3: "3. The Yeast Mitochondrial Code",
+    4: "4. The Mold, Protozoan, and Coelenterate Mitochondrial Code and the Mycoplasma/Spiroplasma Code",
+    5: "5. The Invertebrate Mitochondrial Code",
+    6: "6. The Ciliate, Dasycladacean and Hexamita Nuclear Code",
+    9: "9. The Echinoderm and Flatworm Mitochondrial Code",
+    10: "10. The Euplotid Nuclear Code",
+    11: "11. The Bacterial, Archaeal and Plant Plastid Code",
+    12: "12. The Alternative Yeast Nuclear Code",
+    13: "13. The Ascidian Mitochondrial Code",
+    14: "14. The Alternative Flatworm Mitochondrial Code",
+    16: "16. Chlorophycean Mitochondrial Code",
+    21: "21. Trematode Mitochondrial Code",
+    22: "22. Scenedesmus obliquus Mitochondrial Code",
+    23: "23. Thraustochytrium Mitochondrial Code",
+    24: "24. Pterobranchia Mitochondrial Code",
+    25: "25. Candidate Division SR1 and Gracilibacteria Code",
+}
+
+
+def int_range(value):
+    ivalue = int(value)
+    if ivalue < 1 or ivalue > 25:
+        raise argparse.ArgumentTypeError(
+            f"{value} is not in the valid range (1-25). \n {translation_table}"
+        )
+    return ivalue
+
+
 def mainArgs():
     parser = argparse.ArgumentParser(
         description="Mitofinder is a pipeline to assemble and annotate mitochondrial DNA from trimmed sequencing reads.",
@@ -81,15 +136,16 @@ def mainArgs():
     parser.add_argument(
         "-t",
         "--tRNA-annotation",
-        help='"arwen"/"mitfi"/"trnascan" tRNA annotater to use. Default = mitfi',
+        choices=["arwen", "mitfi", "trnascan"],
+        help="Choose a tRNA annotation tool to use.Options: ('arwen','mitfi','trnascan') Default = mitfi",
         default="mitfi",
         dest="tRNAannotation",
     )
     parser.add_argument(
         "-j",
         "--seqid",
-        help="Sequence ID to be used throughout the process",
-        default="",
+        help="Job ID to be used throughout the process",
+        required=True,
         dest="processName",
     )
     parser.add_argument(
@@ -108,13 +164,6 @@ def mainArgs():
     )
     parser.add_argument(
         "-s", "--Single-end", help="File with single-end reads", default="", dest="SE"
-    )
-    parser.add_argument(
-        "-c",
-        "--config",
-        help="Use this option to specify another Mitofinder.config file.",
-        default="",
-        dest="config",
     )
     parser.add_argument(
         "-a",
@@ -150,7 +199,7 @@ def mainArgs():
         "-r",
         "--refseq",
         help="Reference mitochondrial genome in GenBank format (.gb).",
-        default="",
+        required=True,
         dest="refSeqFile",
     )
     parser.add_argument(
@@ -255,8 +304,9 @@ def mainArgs():
     )
     parser.add_argument(
         "--rename-contig",
-        help='"yes/no" If "yes", the contigs matching the reference(s) are renamed. Default is "yes" for de novo assembly and "no" for existing assembly (-a option)',
-        default="default",
+        help="If set then the contigs matching the reference(s) are renamed. Default: False",
+        default=False,
+        action="store_true",
         dest="rename",
     )
     parser.add_argument(
@@ -297,26 +347,10 @@ def mainArgs():
     parser.add_argument(
         "-o",
         "--organism",
-        help="Organism genetic code following NCBI table (integer):\n\
-					1. The Standard Code \
-					2. The Vertebrate Mitochondrial Code\
-					3. The Yeast Mitochondrial Code\
-					4. The Mold, Protozoan, and Coelenterate Mitochondrial Code and the Mycoplasma/Spiroplasma Code\
-					5. The Invertebrate Mitochondrial Code\
-					6. The Ciliate, Dasycladacean and Hexamita Nuclear Code\
-					9. The Echinoderm and Flatworm Mitochondrial Code\
-					10. The Euplotid Nuclear Code\
-					11. The Bacterial, Archaeal and Plant Plastid Code\
-					12. The Alternative Yeast Nuclear Code\
-					13. The Ascidian Mitochondrial Code\
-					14. The Alternative Flatworm Mitochondrial Code\
-					16. Chlorophycean Mitochondrial Code\
-					21. Trematode Mitochondrial Code\
-					22. Scenedesmus obliquus Mitochondrial Code\
-					23. Thraustochytrium Mitochondrial Code\
-					24. Pterobranchia Mitochondrial Code\
-					25. Candidate Division SR1 and Gracilibacteria Code",
-        default="",
+        type=int_range,
+        choices=range(1, 26),
+        help=translation_table,
+        required=True,
         dest="organismType",
     )
     parser.add_argument(
@@ -351,26 +385,44 @@ def main():
     module_dir = os.path.abspath(module_dir)
 
     blasteVal = args.blasteVal
-    usingOwnGenBankReference = False
-    initial_path = os.getcwd() + "/"
+    initial_path = os.getcwd()
 
+    # Print example mitofinder cmd and exit
     if args.example == True:
         print(
-            "\n # For trimmed paired-end reads:\nmitofinder --megahit -j [seqid] \\\n\t-1 [left_reads.fastq.gz] \\\n\t-2 [right_reads.fastq.gz] \\\n\t-r [genbank_reference.gb] \\\n\t-o [genetic_code] \\\n\t-p [threads] \\\n\t-m [memory]\n\n # For trimmed single-end reads:\nmitofinder --megahit -j [seqid] \\\n\t-s [SE_reads.fastq.gz] \\\n\t-r [genbank_reference.gb] \\\n\t-o [genetic_code] \\\n\t-p [threads] \\\n\t-m [memory]\n\n # For one assembly (one or more contig(s))\nmitofinder -j [seqid] \\\n\t-a [assembly.fasta] \\\n\t-r [genbank_reference.gb] \\\n\t-o [genetic_code] \\\n\t-p [threads] \\\n\t-m [memory]\n"
+            """
+        # For trimmed paired-end reads:
+        mitofinder --megahit -j [seqid] \\\n\t-1 [left_reads.fastq.gz] \\\n\t-2 [right_reads.fastq.gz] \\\n\t-r [genbank_reference.gb] \\\n\t-o [genetic_code] \\\n\t-p [threads] \\\n\t-m [memory]\n\n 
+        # For trimmed single-end reads:
+        mitofinder --megahit -j [seqid] \\\n\t-s [SE_reads.fastq.gz] \\\n\t-r [genbank_reference.gb] \\\n\t-o [genetic_code] \\\n\t-p [threads] \\\n\t-m [memory]\n\n 
+        # For one assembly (one or more contig(s))
+        mitofinder -j [seqid] \\\n\t-a [assembly.fasta] \\\n\t-r [genbank_reference.gb] \\\n\t-o [genetic_code] \\\n\t-p [threads] \\\n\t-m [memory]
+        """
         )
-        exit()
+        exit(0)
+
     if args.citation == True:
-        txt = "\n\nIf you use MitoFinder, please cite:\n- Allio, R., Schomaker Bastos, A., Romiguier, J., Prosdocimi, F., Nabholz, B. & Delsuc, F. (2020). MitoFinder: Efficient automated large-scale extraction of mitogenomic data in target enrichment phylogenomics. Mol Ecol Resour. 20, 892-905. https://doi.org/10.1111/1755-0998.13160\n\nPlease also cite the following references depending on the option chosen for the assembly step in MitoFinder:\n- Li, D., Luo, R., Liu, C. M., Leung, C. M., Ting, H. F., Sadakane, K., Yamashita, H. & Lam, T. W. (2016). MEGAHIT v1.0: a fast and scalable metagenome assembler driven by advanced methodologies and community practices. Methods, 102(6), 3-11.\n- Nurk, S., Meleshko, D., Korobeynikov, A., & Pevzner, P. A. (2017). metaSPAdes: a new versatile metagenomic assembler. Genome research, 27(5), 824-834.\n- Peng, Y., Leung, H. C., Yiu, S. M., & Chin, F. Y. (2012). IDBA-UD: a de novo assembler for single-cell and metagenomic sequencing data with highly uneven depth. Bioinformatics, 28(11), 1420-1428.\n\nFor tRNAs annotation, depending on the option chosen:\n- MiTFi: Juhling, F., Putz, J., Bernt, M., Donath, A., Middendorf, M., Florentz, C., & Stadler, P. F. (2012). Improved systematic tRNA gene annotation allows new insights into the evolution of mitochondrial tRNA structures and into the mechanisms of mitochondrial genome rearrangements. Nucleic acids research, 40(7), 2833-2845.\n- Laslett, D., & Canback, B. (2008). ARWEN: a program to detect tRNA genes in metazoan mitochondrial nucleotide sequences. Bioinformatics, 24(2), 172-175.\n- Chan, P. P., & Lowe, T. M. (2019). tRNAscan-SE: searching for tRNA genes in genomic sequences. In Gene Prediction (pp. 1-14). Humana, New York, NY. \n\n"
-        txt = txt.replace("\u2013", "-")
-        print(txt)
-        exit()
+        cite_txt = """ If you use MitoFinder, please cite:
+        - Allio, R., Schomaker Bastos, A., Romiguier, J., Prosdocimi, F., Nabholz, B. & Delsuc, F. (2020). MitoFinder: Efficient automated large-scale extraction of mitogenomic data in target enrichment phylogenomics. Mol Ecol Resour. 20, 892-905. https://doi.org/10.1111/1755-0998.13160
+        
+        Please also cite the following references depending on the option chosen for the assembly step in MitoFinder:
+        - Li, D., Luo, R., Liu, C. M., Leung, C. M., Ting, H. F., Sadakane, K., Yamashita, H. & Lam, T. W. (2016). MEGAHIT v1.0: a fast and scalable metagenome assembler driven by advanced methodologies and community practices. Methods, 102(6), 3-11.
+        - Nurk, S., Meleshko, D., Korobeynikov, A., & Pevzner, P. A. (2017). metaSPAdes: a new versatile metagenomic assembler. Genome research, 27(5), 824-834.
+        - Peng, Y., Leung, H. C., Yiu, S. M., & Chin, F. Y. (2012). IDBA-UD: a de novo assembler for single-cell and metagenomic sequencing data with highly uneven depth. Bioinformatics, 28(11), 1420-1428.
+        
+        For tRNAs annotation, depending on the option chosen:
+        - MiTFi: Juhling, F., Putz, J., Bernt, M., Donath, A., Middendorf, M., Florentz, C., & Stadler, P. F. (2012). Improved systematic tRNA gene annotation allows new insights into the evolution of mitochondrial tRNA structures and into the mechanisms of mitochondrial genome rearrangements. Nucleic acids research, 40(7), 2833-2845.
+        - Laslett, D., & Canback, B. (2008). ARWEN: a program to detect tRNA genes in metazoan mitochondrial nucleotide sequences. Bioinformatics, 24(2), 172-175.\n- Chan, P. P., & Lowe, T. M. (2019). tRNAscan-SE: searching for tRNA genes in genomic sequences. In Gene Prediction (pp. 1-14). Humana, New York, NY.
+        """
+        # Replace long dash with dash
+        cite_txt = cite_txt.replace("\u2013", "-")
+        print(cite_txt)
+        exit(0)
 
-    if args.organismType != "":
-        args.organismType = int(args.organismType)
-    if args.processName == "":
-        print("\nERROR: SeqID is required (-j option)")
-        exit()
+    # Print the selected organism type
+    print(f"You have selected translation table: {code_dict[args.organismType]}")
 
+    # Create logfile
     Logfile = args.processName + "_MitoFinder.log"
     Logfile = os.path.join(initial_path, Logfile)
     logfile = open(Logfile, "w")
@@ -387,40 +439,21 @@ def main():
     print("Now running MitoFinder ...\n")
     print("Start time : " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n")
 
-    print("Job name = " + args.processName)
+    # Print Job ID
+    print("Job ID = " + args.processName)
 
-    if not os.path.exists(module_dir + "/install.sh.ok"):
-        print(
-            "\nERROR: MitoFinder is not installed.\nNo such file or directory: "
-            + module_dir
-            + "/install.sh.ok\nPlease run ./install.sh in the MitoFinder directory.\nAborting."
-        )
-        logfile.write(
-            "\nERROR: MitoFinder is not installed.\nNo such file or directory: "
-            + module_dir
-            + "/install.sh.ok\nPlease run ./install.sh in the MitoFinder directory.\nAborting.\n"
-        )
-        exit()
-    if args.tRNAannotation.lower() == "mitfi":
-        try:
-            command = "java"
-            args1 = shlex.split(command)
-            java_test = Popen(
-                args1,
-                stdout=open("test_java.ok", "w"),
-                stderr=open("test_java.ok", "w"),
-            )
-            java_test.wait()
-            if os.path.exists("test_java.ok"):
-                os.remove("test_java.ok")
-        except:
+    # Check java is available if using mitfi
+    if args.tRNAannotation == "mitfi":
+        if not is_java_installed():
             print(
                 "\nERROR: java is not installed/loaded.\nPlease install/load java to run MitoFinder with MiTFi."
             )
             logfile.write(
                 "\nERROR: java is not installed/loaded.\nPlease install/load java to run MitoFinder with MiTFi."
             )
-            exit()
+            exit(1)
+
+    # Check for either short reads OR a mito assembly.
     if args.PE1 == "" and args.PE2 == "" and args.SE == "" and args.Assembly == "":
         print(
             "\nERROR: Read or assembly files are not specified.\n Please, use -1 -2 -s or -a option to specify input data."
@@ -428,118 +461,62 @@ def main():
         logfile.write(
             "\nERROR: Read or assembly files are not specified.\n Please, use -1 -2 -s or -a option to specify input data.\n"
         )
-        exit()
+        exit(1)
 
-    if args.refSeqFile == "":
-        print("\nERROR: Reference file is required (-r option)")
-        logfile.write("\nERROR: Reference file is required (-r option).\n")
-        exit()
-    args.refSeqFile = os.path.join(initial_path, args.refSeqFile)
+    # Check that short reads are not duplicated
+    if (args.PE1 or args.PE2 or args.SE) and not args.Assembly:
+        dup_items = find_duplicates([args.PE1, args.PE2, args.SE])
 
-    if args.organismType == "":
-        print(
-            """
-        \nERROR: Genetic code is required (-o option) \n\
-		1. The Standard Code \n\
-		2. The Vertebrate Mitochondrial Code\n\
-		3. The Yeast Mitochondrial Code\n\
-		4. The Mold, Protozoan, and Coelenterate Mitochondrial Code \n\
-            and the Mycoplasma/Spiroplasma Code\n\
-		5. The Invertebrate Mitochondrial Code\n\
-		6. The Ciliate, Dasycladacean and Hexamita Nuclear Code\n\
-		9. The Echinoderm and Flatworm Mitochondrial Code\n\
-		10. The Euplotid Nuclear Code\n\
-		11. The Bacterial, Archaeal and Plant Plastid Code\n\
-		12. The Alternative Yeast Nuclear Code\n\
-		13. The Ascidian Mitochondrial Code\n\
-		14. The Alternative Flatworm Mitochondrial Code\n\
-		16. Chlorophycean Mitochondrial Code\n\
-		21. Trematode Mitochondrial Code\n\
-		22. Scenedesmus obliquus Mitochondrial Code\n\
-		23. Thraustochytrium Mitochondrial Code\n\
-		24. Pterobranchia Mitochondrial Code\n\
-		25. Candidate Division SR1 and Gracilibacteria Code\n
-        """
-        )
-        logfile.write(
-            "\nERROR: Genetic code is required (-o option) \n\
-		1. The Standard Code \n\
-		2. The Vertebrate Mitochondrial Code\n\
-		3. The Yeast Mitochondrial Code\n\
-		4. The Mold, Protozoan, and Coelenterate Mitochondrial Code \n\
-		   and the Mycoplasma/Spiroplasma Code\n\
-		5. The Invertebrate Mitochondrial Code\n\
-		6. The Ciliate, Dasycladacean and Hexamita Nuclear Code\n\
-		9. The Echinoderm and Flatworm Mitochondrial Code\n\
-		10. The Euplotid Nuclear Code\n\
-		11. The Bacterial, Archaeal and Plant Plastid Code\n\
-		12. The Alternative Yeast Nuclear Code\n\
-		13. The Ascidian Mitochondrial Code\n\
-		14. The Alternative Flatworm Mitochondrial Code\n\
-		16. Chlorophycean Mitochondrial Code\n\
-		21. Trematode Mitochondrial Code\n\
-		22. Scenedesmus obliquus Mitochondrial Code\n\
-		23. Thraustochytrium Mitochondrial Code\n\
-		24. Pterobranchia Mitochondrial Code\n\
-		25. Candidate Division SR1 and Gracilibacteria Code\n\n"
-        )
-        exit()
+        if dup_items:
+            print(
+                "Warning: Some short read file names occur more than once!", dup_items
+            )
+            exit(1)
 
-    args.rename = args.rename.lower()
-    if args.rename == "y":
-        args.rename = "yes"
-    if args.rename == "n":
-        args.rename = "no"
-    if (
-        args.Assembly != "" and args.rename == "default"
-    ):  # changing default in that case
-        args.rename = "no"
-    if args.Assembly == "" and args.rename == "default":
-        args.rename = "yes"
-    if args.rename.lower() != "yes" and args.rename != "no":
-        print(
-            '\nERROR: unrecognized value "'
-            + args.rename
-            + '" for argument: --rename-contig. Please use "yes" or "no".'
-        )
-        logfile.write(
-            '\nERROR: unrecognized value "'
-            + args.rename
-            + '" for argument: --rename-contig. Please use "yes" or "no".\n'
-        )
-        exit()
+    # Check that short read files exist if args specified
+    check_files([args.PE1, args.PE2, args.SE])
 
-    if args.tRNAannotation.lower() == "trnascan":
-        tRNA = "trnascan"
-    elif args.tRNAannotation.lower() == "arwen":
-        tRNA = "arwen"
-    elif args.tRNAannotation.lower() == "mitfi":
-        tRNA = "mitfi"
-    else:
-        print(
-            'ERROR: Option "'
-            + str(args.tRNAannotation)
-            + '" not recognized for -t/--tRNA-annotation.\nPlease use "arwen", "mitfi" ot "trnascan".\nAborting.'
-        )
-        logfile.write(
-            'ERROR: Option "'
-            + str(args.tRNAannotation)
-            + '" not recognized for -t/--tRNA-annotation.\nPlease use "arwen", "mitfi" ot "trnascan".\nAborting.\n'
-        )
-        exit()
+    # Check reference annotation file exists
+    if args.refSeqFile:
+        print(f"Checking for reference annotation: {args.refSeqFile}")
+        args.refSeqFile = get_abs_if_found(args.refSeqFile)
 
-    if args.PE1 != "":
-        args.PE1 = os.path.join(initial_path, args.PE1)
+    # Check assembly file exists
+    if args.Assembly:
+        print(f"Checking for assembly: {args.Assembly}")
+        args.Assembly = get_abs_if_found(args.Assembly)
+
+        # If Asm provided but reads or assembler opts also set,
+        # warn user.
+        if (
+            args.megahit
+            or args.idba
+            or args.metaspades
+            or args.PE1
+            or args.PE2
+            or args.SE
+        ) and args.Assembly:
+            print("Skipping de novo assembly and using existing assembly.")
+
+        # Set de novo assembly options to false if user provided asm found.
+        args.megahit = False
+        args.idba = False
+        args.metaspades = False
+
+    # Set full path to short reads if filename arg provided
+    if args.PE1:
+        args.PE1 = get_abs_if_found(args.PE1)
         q1 = "q1=" + args.PE1
-    if args.PE2 != "":
-        args.PE2 = os.path.join(initial_path, args.PE2)
+    if args.PE2:
+        args.PE2 = get_abs_if_found(args.PE2)
         q2 = "q2=" + args.PE2
-    if args.SE != "":
-        args.SE = os.path.join(initial_path, args.SE)
-        q1 = "q1=" + args.SE
+    if args.SE:
+        args.SE = get_abs_if_found(args.SE)
+        q3 = "q3=" + args.SE  # Changed from q1 to q3 to prevent SE overwrites PE1
 
-    if args.PE1 != "":
-        if args.PE2 != "":
+    # Check for both sets of paired-end reads
+    if args.PE1:
+        if args.PE2:
             T = "PE"
         else:
             print(
@@ -548,9 +525,10 @@ def main():
             logfile.write(
                 "\nERROR: Only a file with forward paired-end reads was specified.\nPlease specify the file with reverse paired-end reads with -2 option.\nIf you want to use single-end reads, please, use -s option.\n"
             )
-            exit()
-    if args.PE2 != "":
-        if args.PE1 != "":
+            exit(1)
+
+    if args.PE2:
+        if args.PE1:
             T = "PE"
         else:
             print(
@@ -559,9 +537,18 @@ def main():
             logfile.write(
                 "\nERROR: Only a file with reverse paired-end reads was specified.\nPlease specify the file with forward paired-end reads with -1 option.\nIf you want to use single reads, please, use -s option.\n"
             )
-            exit()
-    if args.SE != "":
+            exit(1)
+
+    # Populate JOB.input file
+    if args.PE1 and args.PE2:
+        inputfile = open(args.processName + ".input", "w")
+        inputfile.write("type=" + T + "\n" + q1 + "\n" + q2)
+        inputfile.close()
+        args.inputFile = os.path.join(initial_path, args.processName + ".input")
+
+    if args.SE:
         T = "SE"
+        # Metaspades requires PE reads
         if args.metaspades == True:
             print(
                 "\nERROR: MetaSPAdes cannot be used for assembly from single-end reads. \nUse Megahit or IDBA-UD.\n"
@@ -569,46 +556,14 @@ def main():
             logfile.write(
                 "\nERROR: MetaSPAdes cannot for assembly from single-end reads. \nUse Megahit or IDBA-UD.\n"
             )
-            exit()
+            exit(1)
 
-    if args.PE1 != "" and not os.path.isfile(args.PE1):
-        print("\nERROR: " + args.PE1 + " does not exist")
-        logfile.write("\nERROR: " + args.PE1 + " does not exist")
-        exit()
-
-    if args.PE2 != "" and not os.path.isfile(args.PE2):
-        print("\nERROR: " + args.PE2 + " does not exist")
-        logfile.write("\nERROR: " + args.PE2 + " does not exist")
-        exit()
-
-    if args.SE != "" and not os.path.isfile(args.SE):
-        print("\nERROR: " + args.SE + " does not exist")
-        logfile.write("\nERROR: " + args.SE + " does not exist")
-        exit()
-
-    if args.refSeqFile != "" and not os.path.isfile(args.refSeqFile):
-        print("\nERROR: " + args.refSeqFile + " does not exist")
-        logfile.write("\nERROR: " + args.refSeqFile + " does not exist")
-        exit()
-
-    if args.Assembly != "":
-        args.Assembly = os.path.join(initial_path, args.Assembly)
-        if not os.path.isfile(args.Assembly):
-            print("\nERROR: " + args.Assembly + " does not exist")
-            logfile.write("\nERROR: " + args.Assembly + "does not exist")
-            exit()
-
-    if args.PE1 != "" and args.PE2 != "":
+    # Populate JOB.input file
+    if args.SE:
         inputfile = open(args.processName + ".input", "w")
-        inputfile.write("type=" + T + "\n" + q1 + "\n" + q2)
+        inputfile.write("type=" + T + "\n" + q3)
         inputfile.close()
-        args.inputFile = initial_path + args.processName + ".input"
-
-    if args.SE != "":
-        inputfile = open(args.processName + ".input", "w")
-        inputfile.write("type=" + T + "\n" + q1)
-        inputfile.close()
-        args.inputFile = initial_path + args.processName + ".input"
+        args.inputFile = os.path.join(initial_path, args.processName + ".input")
 
     args.coveCutOff = 7
     if args.numt == True:
@@ -623,173 +578,48 @@ def main():
 
     if args.numt == 1 and args.gap == 1:
         args.nWalk = 0
-    """
-	Read config file and import information.
-	"""
-    module_dir = os.path.dirname(__file__)
-    module_dir = os.path.abspath(module_dir)
-    if args.config == "":
-        cfg_full_path = os.path.join(module_dir, "Mitofinder.config")
-    else:
-        cfg_full_path = args.config
-    initial_path = os.getcwd()
-    # create output directory
 
-    pathtowork = initial_path + "/" + args.processName
+    # Create output directory
+    pathtowork = os.path.join(os.getcwd(), args.processName)
+    print("Creating Output directory : " + pathtowork)
+    setup_directory(pathtowork)
+
     logfile.write(
         "\nCreating Output directory : "
         + pathtowork
         + "\nAll results will be written here\n"
     )
-    print("")
-    print("Creating Output directory : " + pathtowork)
-    print("All results will be written here")
-    print("")
-    if not os.path.exists(pathtowork):
-        os.makedirs(pathtowork)
 
-    with open(cfg_full_path, "r") as configFile:
-        for line in configFile:
-            if "#" != line[0] and line != "\n":
-                configPart = (
-                    line.lower().replace("\n", "").replace(" ", "").split("=")[0]
-                )
-                if configPart == "megahitfolder":
-                    pathToMegahitFolder = (
-                        line.replace("\n", "").replace(" ", "").split("=")[-1]
-                    )
-                elif configPart == "blastfolder":
-                    blastFolder = line.replace("\n", "").replace(" ", "").split("=")[-1]
-                elif configPart == "idbafolder":
-                    pathToIdbaFolder = (
-                        line.replace("\n", "").replace(" ", "").split("=")[-1]
-                    )
-                elif configPart == "metaspadesfolder":
-                    pathToMetaspadesFolder = (
-                        line.replace("\n", "").replace(" ", "").split("=")[-1]
-                    )
-                elif configPart == "arwenfolder":
-                    pathToArwenFolder = (
-                        line.replace("\n", "").replace(" ", "").split("=")[-1]
-                    )
-                elif configPart == "trnascanfolder":
-                    pathTotRNAscanFolder = (
-                        line.replace("\n", "").replace(" ", "").split("=")[-1]
-                    )
-                elif configPart == "mitfifolder":
-                    pathToMitfiFolder = (
-                        line.replace("\n", "").replace(" ", "").split("=")[-1]
-                    )
+    # Check for selected tRNA annotation tool
+    # Use version of mifi or arwen that are bundled with MitoFinder if they are requested but not found on PATH
+    tRNA = args.tRNAannotation
+    if args.tRNAannotation == "trnascan":
+        is_avail(["trnascan-SE"])
+    elif args.tRNAannotation == "arwen":
+        if not is_avail(
+            ["arwen"], kill=False
+        ):  # Not sure what the executable should be called here
+            pathToArwenFolder = os.path.abspath(
+                os.path.join(module_dir, "../../bin/arwen/")
+            )
+            print("Using bundled arwen: {pathToArwenFolder}")
+    elif args.tRNAannotation == "mitfi":
+        if not is_avail(["mitfi.jar"], kill=False):
+            pathToMitfiFolder = os.path.abspath(
+                os.path.join(module_dir, "../../bin/mitfi/")
+            )
+            print("Using bundled mitfi.jar: {pathToMitfiFolder}")
 
-    if pathToMegahitFolder.lower() == "default":
-        pathToMegahitFolder = os.path.join(module_dir, "megahit/")
-
-    if blastFolder.lower() == "default":
-        blastFolder = os.path.join(module_dir, "blast/bin/")
-
-    if pathToIdbaFolder.lower() == "default":
-        pathToIdbaFolder = os.path.join(module_dir, "idba/bin/")
-
-    if pathToMetaspadesFolder.lower() == "default":
-        pathToMetaspadesFolder = os.path.join(module_dir, "metaspades/bin/")
-
-    if pathToArwenFolder.lower() == "default":
-        pathToArwenFolder = os.path.join(module_dir, "arwen/")
-
-    if pathTotRNAscanFolder.lower() == "default":
-        pathTotRNAscanFolder = os.path.join(module_dir, "trnascanSE/tRNAscan-SE-2.0/")
-
-    if pathToMitfiFolder.lower() == "default":
-        pathToMitfiFolder = os.path.join(module_dir, "mitfi/")
-
-    print("Program folders:")
-    print("MEGAHIT = %s" % pathToMegahitFolder)
-    print("MetaSPAdes folder = %s" % pathToMetaspadesFolder)
-    print("IDBA-UD folder = %s" % pathToIdbaFolder)
-    print("Blast folder = %s" % blastFolder)
-    print("ARWEN folder = %s" % pathToArwenFolder)
-    print("MiTFi folder = %s" % pathToMitfiFolder)
-    print("tRNAscan-SE folder = %s" % pathTotRNAscanFolder)
-    print("")
-    logfile.write(
-        "Program folders:\n"
-        + "MEGAHIT = %s" % pathToMegahitFolder
-        + "\n"
-        + "Blast folder = %s" % blastFolder
-        + "\n"
-        + "IDBA-UD folder = %s" % pathToIdbaFolder
-        + "\n"
-        + "MetaSPAdes folder = %s" % pathToMetaspadesFolder
-        + "\n"
-        + "ARWEN folder = %s" % pathToArwenFolder
-        + "\n"
-        + "MiTFi folder = %s" % pathToMitfiFolder
-        + "\n"
-        + "tRNAscan-SE folder = %s" % pathTotRNAscanFolder
-        + "\n\n"
-    )
-
-    try:
-        command = blastFolder + "makeblastdb -h "
-        args1 = shlex.split(command)
-        formatDB = Popen(args1, stdout=open(os.devnull, "wb"))
-        formatDB.wait()
-    except:
-        print(blastFolder + "makeblastdb is not executable")
-        print(
-            "Please check the installation and the path indicated above and restart MitoFinder."
-        )
-        print("Aborting")
-        logfile.write(
-            blastFolder
-            + "makeblastdb is not executable\n"
-            + "Please check the installation and the path indicated above and restart MitoFinder.\n"
-            + "Aborting\n"
-        )
-        exit()
-
-    try:
-        command = blastFolder + "blastn -h "
-        args1 = shlex.split(command)
-        formatDB = Popen(args1, stdout=open(os.devnull, "wb"))
-        formatDB.wait()
-    except:
-        print(blastFolder + "blastn is not executable")
-        print(
-            "Please check the installation and the path indicated above and restart Mitofinder."
-        )
-        print("Aborting")
-        logfile.write(
-            blastFolder
-            + "blastn is not executable\n"
-            + "Please check the installation and the path indicated above and restart Mitofinder.\n"
-            + "Aborting\n"
-        )
-        exit()
-
-    try:
-        command = blastFolder + "blastx -h "
-        args1 = shlex.split(command)
-        formatDB = Popen(args1, stdout=open(os.devnull, "wb"))
-        formatDB.wait()
-    except:
-        print(blastFolder + "blastx is not executable")
-        print(
-            "Please check the installation and the path indicated above and restart Mitofinder."
-        )
-        print("Aborting")
-        logfile.write(
-            blastFolder
-            + "blastx is not executable\n"
-            + "Please check the installation and the path indicated above and restart Mitofinder.\n"
-            + "Aborting\n"
-        )
-        exit()
-
-    if args.refSeqFile == None:
-        print("Reference file is not specified.")
-        print("Aborting")
-        logfile.write("Reference file is not specified.\n" + "Aborting\n")
+    if not args.Assembly:
+        # Check if Megahit is on PATH. Default assembler if no asm provided
+        if args.megahit:
+            is_avail(["megahit"])
+        # Check for IDBA-UD on PATH. Alt assembler.
+        if args.idba:
+            is_avail(["idba"])
+        # Check for MetaSPAdes on PATH. Alt assembler.
+        if args.metaspades:
+            is_avail(["metaspades.py"])
 
     # just start the variables for future checking
     firstStep = None  # Megahit
@@ -1448,15 +1278,13 @@ def main():
             logfile.write("\n")
 
             command = (
-                blastFolder + "makeblastdb -in " + str(faa_filename) + " -dbtype nucl"
+                "makeblastdb -in " + str(faa_filename) + " -dbtype nucl"
             )  # need to formatdb refseq first
             args1 = shlex.split(command)
             formatDB = Popen(args1, stdout=open(os.devnull, "wb"))
             formatDB.wait()
 
-            command = (
-                blastFolder + "makeblastdb -in contig_id_database.fasta -dbtype nucl"
-            )  # need to formatdb refseq first
+            command = "makeblastdb -in contig_id_database.fasta -dbtype nucl"  # need to formatdb refseq first
             args1 = shlex.split(command)
             formatDB = Popen(args1, stdout=open(os.devnull, "wb"))
             formatDB.wait()
@@ -1496,7 +1324,6 @@ def main():
 
     Assembly = True
     if args.Assembly != "":
-        args.Assembly = os.path.join(initial_path, args.Assembly)
         args.megahit = False
         args.idba = False
         args.metaspades = False
@@ -1536,10 +1363,8 @@ def main():
                 inputFile=args.inputFile,
                 shortestContig=args.shortestContig,
                 processorsToUse=args.processorsToUse,
-                megahitFolder=pathToMegahitFolder,
                 refSeqFile=args.refSeqFile,
                 organismType=args.organismType,
-                blastFolder=blastFolder,
                 maxMemory=args.mem,
                 logfile=Logfile,
                 override=args.override,
@@ -1576,10 +1401,8 @@ def main():
                 inputFile=args.inputFile,
                 shortestContig=args.shortestContig,
                 processorsToUse=args.processorsToUse,
-                idbaFolder=pathToIdbaFolder,
                 refSeqFile=args.refSeqFile,
                 organismType=args.organismType,
-                blastFolder=blastFolder,
                 logfile=Logfile,
                 override=args.override,
             )
@@ -1612,10 +1435,8 @@ def main():
                 inputFile=args.inputFile,
                 shortestContig=args.shortestContig,
                 processorsToUse=args.processorsToUse,
-                metaspadesFolder=pathToMetaspadesFolder,
                 refSeqFile=args.refSeqFile,
                 organismType=args.organismType,
-                blastFolder=blastFolder,
                 maxMemory=args.mem,
                 logfile=Logfile,
                 override=args.override,
@@ -1656,7 +1477,7 @@ def main():
         logfile.write(
             "Formatting database for mitochondrial contigs identification...\n"
         )
-        command = blastFolder + "/makeblastdb -in " + link_file + " -dbtype nucl"
+        command = "makeblastdb -in " + link_file + " -dbtype nucl"
 
         args1 = shlex.split(command)
         formatDB = Popen(args1, stdout=open(os.devnull, "wb"))
@@ -1666,8 +1487,7 @@ def main():
         logfile.write("Running mitochondrial contigs identification step...\n")
         with open(args.processName + "_blast_out.txt", "w") as BlastResult:
             command = (
-                blastFolder
-                + "/blastn -db "
+                "blastn -db "
                 + link_file
                 + " -query contig_id_database.fasta -evalue "
                 + str(blasteVal)
@@ -1839,22 +1659,24 @@ def main():
                     SeqIO.write(r, fout, "fasta")
             fout.close()
 
+            # Resultfile
             pathOfResult = pathtowork + "/" + args.processName + "_contig.fasta"
-            command = (
-                module_dir
-                + "/circularizationCheck.py "
-                + pathOfResult
-                + " "
-                + str(args.circularSize)
-                + " "
-                + str(args.circularOffSet)
+
+            # Call module as script
+            command = ["python", "-m", "mitofinder.circularizationCheck"]
+            # [resultFile, circularSize, circularOffSet]
+            circ_args = [pathOfResult, str(args.circularSize), str(args.circularOffSet)]
+
+            # subprocess.run(["python", "-m", "mitofinder.circularizationCheck"] + arguments)
+            result = subprocess.run(
+                command + circ_args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                shell=True,
             )
-            args1 = shlex.split(command)
-            fourthStep = Popen(
-                args1, stdout=subprocess.PIPE, stderr=open(os.devnull, "wb"), shell=True
-            ).communicate()[0]
+            process_output = result.stdout.decode("utf-8") if result.stdout else None
             fourthStep = (
-                fourthStep.rstrip()
+                process_output.rstrip()
                 .replace(" ", "")
                 .replace("(", "")
                 .replace(")", "")
@@ -1939,29 +1761,23 @@ def main():
                 finalStatsFile.write("Circularization: Not found\n")
 
             if args.direction == True:
-                command = (
-                    module_dir
-                    + "/rename_fasta_seqID.py "
-                    + args.processName
-                    + " "
-                    + resultFile
-                    + " "
-                    + pathOfFinalResults
-                    + "/"
-                    + args.processName
-                    + "_mtDNA_contig.fasta"
-                    + " "
-                    + str(1)
-                    + " "
-                    + dico_final_direction.get(finalResults.id)
-                    + " "
-                    + str(args.rename)
-                )
+                # Call module as script
+                command = ["python", "-m", "mitofinder.rename_fasta_seqID"]
+
+                rename_fasta_args = [
+                    args.processName,
+                    resultFile,
+                    os.path.join(
+                        pathOfFinalResults, args.processName + "_mtDNA_contig.fasta"
+                    ),
+                    str(1),
+                    dico_final_direction.get(finalResults.id) + str(args.rename),
+                ]
+
             else:
-                command = (
-                    module_dir
-                    + "/rename_fasta_seqID.py "
-                    + args.processName
+                command = ["python", "-m", "mitofinder.rename_fasta_seqID"]
+                rename_fasta_args = (
+                    +args.processName
                     + " "
                     + resultFile
                     + " "
@@ -1974,10 +1790,10 @@ def main():
                     + " + "
                     + str(args.rename)
                 )
-            args1 = shlex.split(command)
-            rename = Popen(args1, stdout=open(os.devnull, "wb"))
-            rename.wait()
+                rename_fasta_args = shlex.split(rename_fasta_args)
 
+            rename = Popen(command + rename_fasta_args, stdout=open(os.devnull, "wb"))
+            rename.wait()
             os.remove(resultFile)
 
             # Annotating with gene_checker
@@ -1994,8 +1810,7 @@ def main():
                     if line.rstrip() != "rrnL" and line.rstrip() != "rrnS":
                         gene = line.rstrip()
                         command = (
-                            blastFolder
-                            + "/makeblastdb -in "
+                            "makeblastdb -in "
                             + pathtowork
                             + "/ref_"
                             + str(gene + "_database.fasta")
@@ -2008,8 +1823,7 @@ def main():
                             pathtowork + "/" + gene + "_blast_out.txt", "w"
                         ) as BlastResultGene:
                             command = (
-                                blastFolder
-                                + "/blastx -db "
+                                "blastx -db "
                                 + "ref_"
                                 + gene
                                 + "_database.fasta"
@@ -2031,8 +1845,7 @@ def main():
                     if line.rstrip() == "rrnL" or line.rstrip() == "rrnS":
                         gene = line.rstrip()
                         command = (
-                            blastFolder
-                            + "/makeblastdb -in "
+                            "makeblastdb -in "
                             + pathtowork
                             + "/ref_"
                             + str(gene + "_database.fasta")
@@ -2045,8 +1858,7 @@ def main():
                             pathtowork + "/" + gene + "_blast_out.txt", "w"
                         ) as BlastResultGene:
                             command = (
-                                blastFolder
-                                + "/blastn -db "
+                                "blastn -db "
                                 + "ref_"
                                 + gene
                                 + "_database.fasta"
@@ -2091,8 +1903,8 @@ def main():
 
                 if args.gap == 1 or args.numt == 1:
                     command = (
-                        module_dir
-                        + "/geneChecker_fasta_gaps.py "
+                        "python -m mitofinder.geneChecker_fasta_gaps"
+                        + " "
                         + pathtowork
                         + "/ref_for_mtDNA_contig.fasta"
                         + " "
@@ -2138,8 +1950,8 @@ def main():
                     fifthStep.wait()
                 else:
                     command = (
-                        module_dir
-                        + "/geneChecker_fasta.py "
+                        "python -m mitofinder.geneChecker_fasta"
+                        + " "
                         + pathtowork
                         + "/ref_for_mtDNA_contig.fasta"
                         + " "
@@ -2190,8 +2002,8 @@ def main():
 
                 if args.gap == 1 or args.numt == 1:
                     command = (
-                        module_dir
-                        + "/geneChecker_fasta_gaps.py "
+                        "python -m mitofinder.geneChecker_fasta_gaps"
+                        + " "
                         + pathtowork
                         + "/ref_for_mtDNA_contig.fasta"
                         + " "
@@ -2237,8 +2049,8 @@ def main():
                     fifthStep.wait()
                 else:
                     command = (
-                        module_dir
-                        + "/geneChecker_fasta.py "
+                        "python -m mitofinder.geneChecker_fasta"
+                        + " "
                         + pathtowork
                         + "/ref_for_mtDNA_contig.fasta"
                         + " "
@@ -2276,7 +2088,7 @@ def main():
                         stderr=open("geneChecker_error.log", "w"),
                     )
                     fifthStep.wait()
-
+            # Check if correct output was created
             if tRNA == "arwen":
                 test_arwen = (
                     pathOfFinalResults + "/" + args.processName + "_mtDNA_contig.arwen"
@@ -2472,8 +2284,8 @@ def main():
 
                 if args.direction == True:
                     command = (
-                        module_dir
-                        + "/rename_fasta_seqID.py "
+                        "python -m mitofinder.rename_fasta_seqID"
+                        + " "
                         + args.processName
                         + " "
                         + resultFile
@@ -2493,8 +2305,8 @@ def main():
                     )
                 else:
                     command = (
-                        module_dir
-                        + "/rename_fasta_seqID.py "
+                        "python -m mitofinder.rename_fasta_seqID"
+                        + " "
                         + args.processName
                         + " "
                         + resultFile
@@ -2520,8 +2332,7 @@ def main():
                 # creating best ref file for annotation
 
                 command = (
-                    blastFolder
-                    + "/makeblastdb -in "
+                    "makeblastdb -in "
                     + pathOfFinalResults
                     + "/"
                     + args.processName
@@ -2555,8 +2366,7 @@ def main():
                         if line.rstrip() != "rrnL" and line.rstrip() != "rrnS":
                             gene = line.rstrip()
                             command = (
-                                blastFolder
-                                + "/makeblastdb -in "
+                                "makeblastdb -in "
                                 + pathtowork
                                 + "/ref_"
                                 + str(gene + "_database.fasta")
@@ -2569,8 +2379,7 @@ def main():
                                 pathtowork + "/" + gene + "_blast_out.txt", "w"
                             ) as BlastResultGene:
                                 command = (
-                                    blastFolder
-                                    + "/blastx -db "
+                                    "blastx -db "
                                     + "ref_"
                                     + gene
                                     + "_database.fasta"
@@ -2594,8 +2403,7 @@ def main():
                         if line.rstrip() == "rrnL" or line.rstrip() == "rrnS":
                             gene = line.rstrip()
                             command = (
-                                blastFolder
-                                + "/makeblastdb -in "
+                                "makeblastdb -in "
                                 + pathtowork
                                 + "/ref_"
                                 + str(gene + "_database.fasta")
@@ -2608,8 +2416,7 @@ def main():
                                 pathtowork + "/" + gene + "_blast_out.txt", "w"
                             ) as BlastResultGene:
                                 command = (
-                                    blastFolder
-                                    + "/blastn -db "
+                                    "blastn -db "
                                     + "ref_"
                                     + gene
                                     + "_database.fasta"
@@ -2667,8 +2474,8 @@ def main():
                 if recordCount > 1:
                     if args.gap == 1 or args.numt == 1:
                         command = (
-                            module_dir
-                            + "/geneChecker_fasta_gaps.py "
+                            "python -m mitofinder.geneChecker_fasta_gaps"
+                            + " "
                             + pathtowork
                             + "/ref_for_contig_"
                             + str(c)
@@ -2720,8 +2527,8 @@ def main():
                         fifthStep.wait()
                     else:
                         command = (
-                            module_dir
-                            + "/geneChecker_fasta.py "
+                            "python -m mitofinder.geneChecker_fasta"
+                            + " "
                             + pathtowork
                             + "/ref_for_contig_"
                             + str(c)
@@ -2779,8 +2586,8 @@ def main():
 
                     if args.gap == 1 or args.numt == 1:
                         command = (
-                            module_dir
-                            + "/geneChecker_fasta_gaps.py "
+                            "python -m mitofinder.geneChecker_fasta_gaps"
+                            + " "
                             + pathtowork
                             + "/ref_for_contigs.fasta"
                             + " "
@@ -2830,8 +2637,8 @@ def main():
                         fifthStep.wait()
                     else:
                         command = (
-                            module_dir
-                            + "/geneChecker_fasta.py "
+                            "python -m mitofinder.geneChecker_fasta"
+                            + " "
                             + pathtowork
                             + "/ref_for_contigs.fasta"
                             + " "
@@ -3157,8 +2964,8 @@ def main():
             glob.glob(pathOfFinalResults + "/*_raw.gff"), key=os.path.getmtime
         ):
             command = (
-                module_dir
-                + "/sort_gff.py "
+                "python -m mitofinder.sort_gff"
+                + " "
                 + f
                 + " "
                 + args.processName
@@ -3180,8 +2987,8 @@ def main():
             glob.glob(pathOfFinalResults + "/*_raw.gff"), key=os.path.getmtime
         ):
             command = (
-                module_dir
-                + "/sort_gff.py "
+                "python -m mitofinder.sort_gff"
+                + " "
                 + f
                 + " "
                 + args.processName
