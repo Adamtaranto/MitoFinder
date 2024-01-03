@@ -1,9 +1,6 @@
-#!/usr/bin/python
-# Authors: Allio Remi & Schomaker-Bastos Alex
-# ISEM - CNRS - LAMPADA - IBQM - UFRJ
-
 from mitofinder import genbankOutput, tRNAscanChecker
 from mitofinder.tRNAscanChecker import tRNAconvert, prettyRNAName
+from mitofinder.utils import is_avail
 
 from Bio import SeqIO, SearchIO, SeqFeature
 
@@ -62,7 +59,6 @@ def geneCheck(
     cutoffEquality_prot,
     cutoffEquality_nucl,
     usedOwnGenBankReference,
-    blastFolder,
     organismType=2,
     alignCutOff=45,
 ):
@@ -116,9 +112,7 @@ def geneCheck(
     # running blast
     if nbrgene > 0:
         print("Formatting database for blast...")
-        command = (
-            blastFolder + "/makeblastdb -in important_features.fasta -dbtype prot"
-        )  # need to formatdb refseq first
+        command = "makeblastdb -in important_features.fasta -dbtype prot"  # need to formatdb refseq first
 
         args = shlex.split(command)
         formatDB = Popen(args, stdout=open(os.devnull, "wb"))
@@ -128,8 +122,7 @@ def geneCheck(
         with open("important_features.blast.xml", "w") as blastResultFile:
             if usedOwnGenBankReference == True:  # using a personal genbank reference
                 command = (
-                    blastFolder
-                    + "/blastx -db important_features.fasta -query "
+                    "blastx -db important_features.fasta -query "
                     + resultFile
                     + " -evalue "
                     + str(blasteVal)
@@ -140,8 +133,7 @@ def geneCheck(
             else:  # using a non personal genbank reference
                 print("Genetic code: ", str(organismType))
                 command = (
-                    blastFolder
-                    + "/blastx -db important_features.fasta -query "
+                    "blastx -db important_features.fasta -query "
                     + resultFile
                     + "-evalue "
                     + str(blasteVal)
@@ -246,9 +238,7 @@ def geneCheck(
     # running blast
     if nbrRNA > 0:
         print("Formatting database for blast...")
-        command = (
-            blastFolder + "/makeblastdb -in important_features.fasta -dbtype nucl"
-        )  # need to formatdb refseq first
+        command = "makeblastdb -in important_features.fasta -dbtype nucl"  # need to formatdb refseq first
 
         args = shlex.split(command)
         formatDB = Popen(args, stdout=open(os.devnull, "wb"))
@@ -259,8 +249,7 @@ def geneCheck(
                 usedOwnGenBankReference == True
             ):  # using a personal genbank reference, make e-value more restrict
                 command = (
-                    blastFolder
-                    + "/blastn -db important_features.fasta -query "
+                    "blastn -db important_features.fasta -query "
                     + resultFile
                     + " -outfmt 5 -num_threads 2 -word_size 8 -perc_identity "
                     + str(cutoffEquality_nucl)
@@ -269,8 +258,7 @@ def geneCheck(
                 )  # call BLAST with XML output
             else:  # using a non personal genbank reference
                 command = (
-                    blastFolder
-                    + "/blastn -db important_features.fasta -query "
+                    "blastn -db important_features.fasta -query "
                     + resultFile
                     + " -outfmt 5 -num_threads 2 -word_size 8 -perc_identity "
                     + str(cutoffEquality_nucl)
@@ -282,9 +270,9 @@ def geneCheck(
             blastAll.wait()
         """with open("important_features.blast2.out",'w') as blastResultFile:
 			if usedOwnGenBankReference == True: #using a personal genbank reference, make e-value more restrict
-				command = blastFolder+"/blastn -db important_features.fasta -query " + resultFile + " -outfmt 6 -num_threads 2 -word_size 8 -perc_identity " + str(cutoffEquality_nucl) + " -max_hsps 5 -gapextend 2 -gapopen 2 "+ "-dust no" #call BLAST with XML output
+				command = "blastn -db important_features.fasta -query " + resultFile + " -outfmt 6 -num_threads 2 -word_size 8 -perc_identity " + str(cutoffEquality_nucl) + " -max_hsps 5 -gapextend 2 -gapopen 2 "+ "-dust no" #call BLAST with XML output
 			else: #using a non personal genbank reference
-				command = blastFolder+"/blastn -db important_features.fasta -query " + resultFile + " -outfmt 6 -num_threads 2 -word_size 8 -perc_identity " + str(cutoffEquality_nucl) + " -max_hsps 5 -gapextend 2 -gapopen 2 " + "-dust no" #call BLAST with XML output
+				command = "blastn -db important_features.fasta -query " + resultFile + " -outfmt 6 -num_threads 2 -word_size 8 -perc_identity " + str(cutoffEquality_nucl) + " -max_hsps 5 -gapextend 2 -gapopen 2 " + "-dust no" #call BLAST with XML output
 			args = shlex.split(command)
 			blastAll = Popen(args, stdout=blastResultFile)
 			blastAll.wait()"""
@@ -541,24 +529,7 @@ if __name__ == "__main__":
         )
         print("Only the first, second, and third arguments are required.")
     else:
-        module_dir = os.path.dirname(__file__)
-        module_dir = os.path.abspath(module_dir)
-        cfg_full_path = os.path.join(module_dir, "Mitofinder.config")
-
-        with open(cfg_full_path, "r") as configFile:
-            for line in configFile:
-                if "#" != line[0] and line != "\n":
-                    configPart = (
-                        line.lower().replace("\n", "").replace(" ", "").split("=")[0]
-                    )
-                    if configPart == "blastfolder":
-                        blastFolder = (
-                            line.replace("\n", "").replace(" ", "").split("=")[-1]
-                        )
-
-        # if config file has 'default' in the folder field, use the default program folders given with the script
-        if blastFolder.lower() == "default":
-            blastFolder = os.path.join(module_dir, "blast/bin/")
+        is_avail(["makeblastdb", "blastn", "blastx"])
 
         fastaReference = sys.argv[1]
         resultFile = sys.argv[2]
@@ -590,7 +561,6 @@ if __name__ == "__main__":
             percent_equality_prot,
             percent_equality_nucl,
             True,
-            blastFolder,
             organismType,
             alignCutOff,
         )
