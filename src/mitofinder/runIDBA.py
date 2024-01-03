@@ -1,4 +1,5 @@
 import mitofinder.FirstBuildChecker as FirstBuildChecker
+
 from shutil import copyfile
 from subprocess import Popen
 import gzip
@@ -8,16 +9,17 @@ import shutil
 import subprocess
 import time
 
+# Deal with combo single and paired reads
+# fix app path
+
 
 def runIDBA(
     processName="teste",
     shortestContig=100,
     inputFile="teste.input",
     processorsToUse=4,
-    idbaFolder="installed",
     refSeqFile=None,
     organismType=2,
-    blastFolder="installed",
     logfile="logfile",
     override=False,
 ):

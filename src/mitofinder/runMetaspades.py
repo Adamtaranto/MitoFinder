@@ -7,16 +7,17 @@ import shutil
 import subprocess
 import time
 
+# deal with combo paired and single reads
+# remove manual spades path
+
 
 def runMetaspades(
     processName="teste",
     shortestContig=100,
     inputFile="teste.input",
     processorsToUse=4,
-    metaspadesFolder="installed",
     refSeqFile=None,
     organismType=2,
-    blastFolder="installed",
     maxMemory="",
     logfile="logfile",
     override=False,

@@ -7,16 +7,17 @@ import os
 import shutil
 from shutil import copyfile
 
+# deal with combo paired ans single reads
+# fix path to app
+
 
 def runMegahit(
     processName="teste",
     shortestContig=100,
     inputFile="teste.input",
     processorsToUse=4,
-    megahitFolder="installed",
     refSeqFile=None,
     organismType=2,
-    blastFolder="installed",
     maxMemory="",
     logfile="logfile",
     override=False,
