@@ -4,6 +4,8 @@ from Bio.Data import CodonTable
 from subprocess import Popen
 import shlex, sys, os
 
+# remove config refs
+
 
 class Assembly:
     """
