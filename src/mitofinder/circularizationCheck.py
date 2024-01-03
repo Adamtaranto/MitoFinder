@@ -1,13 +1,9 @@
-#!/usr/bin/python
-# Author: Alex Schomaker - alexschomaker@ufrj.br
-# LAMPADA - IBQM - UFRJ
-
 from Bio import SeqIO, SearchIO
 from subprocess import Popen
 import shlex, sys, os
 
 
-def circularizationCheck(resultFile, circularSize, circularOffSet, blastFolder):
+def circularizationCheck(resultFile, circularSize, circularOffSet):
     """
     Check, with blast, if there is a match between the start and the end of a sequence.
     Returns a tuple with (True, start, end) or False, accordingly.
@@ -16,14 +12,7 @@ def circularizationCheck(resultFile, circularSize, circularOffSet, blastFolder):
     sizeOfSeq = len(refSeq)
 
     try:
-        if blastFolder == "installed":
-            command = (
-                "formatdb -in " + resultFile + " -p F"
-            )  # need to formatdb refseq first
-        else:
-            command = (
-                blastFolder + "makeblastdb -in " + resultFile + " -dbtype nucl"
-            )  # need to formatdb refseq first
+        command = "makeblastdb -in " + resultFile + " -dbtype nucl"
         args = shlex.split(command)
         formatDB = Popen(args, stdout=open(os.devnull, "wb"))
         formatDB.wait()
@@ -34,19 +23,13 @@ def circularizationCheck(resultFile, circularSize, circularOffSet, blastFolder):
         return (False, -1, -1)
 
     with open("circularization_check.blast.xml", "w") as blastResultFile:
-        if blastFolder == "installed":
-            command = (
-                "blastall -p blastn -d " + resultFile + " -i " + resultFile + " -m 7"
-            )  # call BLAST with XML output
-        else:
-            command = (
-                blastFolder
-                + "blastn -task blastn -db "
-                + resultFile
-                + " -query "
-                + resultFile
-                + " -outfmt 5"
-            )  # call BLAST with XML output
+        command = (
+            "blastn -task blastn -db "
+            + resultFile
+            + " -query "
+            + resultFile
+            + " -outfmt 5"
+        )  # call BLAST with XML output
         args = shlex.split(command)
         blastAll = Popen(args, stdout=blastResultFile)
         blastAll.wait()
@@ -92,30 +75,15 @@ def circularizationCheck(resultFile, circularSize, circularOffSet, blastFolder):
     return (False, -1, -1)
 
 
-if __name__ == "__main__":
+def main():
     if sys.argv[1] == "-h" or sys.argv[1] == "--help":
         print("Usage: fasta_file")
     else:
         module_dir = os.path.dirname(__file__)
         module_dir = os.path.abspath(module_dir)
-        cfg_full_path = os.path.join(module_dir, "Mitofinder.config")
 
-        with open(cfg_full_path, "r") as configFile:
-            for line in configFile:
-                if "#" != line[0] and line != "\n":
-                    configPart = (
-                        line.lower().replace("\n", "").replace(" ", "").split("=")[0]
-                    )
-                    if configPart == "blastfolder":
-                        blastFolder = (
-                            line.replace("\n", "").replace(" ", "").split("=")[-1]
-                        )
+        print(circularizationCheck(sys.argv[1], int(sys.argv[2]), int(sys.argv[3])))
 
-        if blastFolder.lower() == "default":
-            blastFolder = os.path.join(module_dir, "blast/bin/")
 
-        print(
-            circularizationCheck(
-                sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), blastFolder
-            )
-        )
+if __name__ == "__main__":
+    main()
