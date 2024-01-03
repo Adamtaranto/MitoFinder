@@ -18,33 +18,38 @@ def read_fasta(fp):
         yield (name, "".join(seq))
 
 
-seqID = sys.argv[1]
-fout = open(sys.argv[3], "w")
-c = sys.argv[4]
-direction = sys.argv[5]
+def main():
+    seqID = sys.argv[1]
+    fout = open(sys.argv[3], "w")
+    c = sys.argv[4]
+    direction = sys.argv[5]
 
-resultFile = SeqIO.read(open(sys.argv[2], "rU"), "fasta")
-if direction == "+":
-    if sys.argv[6] == "yes":
-        fout.write(">" + seqID + "." + str(c) + "\n" + str(resultFile.seq) + "\n")
+    resultFile = SeqIO.read(open(sys.argv[2], "rU"), "fasta")
+    if direction == "+":
+        if sys.argv[6] == "yes":
+            fout.write(">" + seqID + "." + str(c) + "\n" + str(resultFile.seq) + "\n")
+        else:
+            fout.write(">" + str(resultFile.id) + "\n" + str(resultFile.seq) + "\n")
     else:
-        fout.write(">" + str(resultFile.id) + "\n" + str(resultFile.seq) + "\n")
-else:
-    if sys.argv[6] == "yes":
-        fout.write(
-            ">"
-            + seqID
-            + "."
-            + str(c)
-            + "\n"
-            + str(resultFile.seq.reverse_complement())
-            + "\n"
-        )
-    else:
-        fout.write(
-            ">"
-            + str(resultFile.id)
-            + " (reverse)\n"
-            + str(resultFile.seq.reverse_complement())
-            + "\n"
-        )
+        if sys.argv[6] == "yes":
+            fout.write(
+                ">"
+                + seqID
+                + "."
+                + str(c)
+                + "\n"
+                + str(resultFile.seq.reverse_complement())
+                + "\n"
+            )
+        else:
+            fout.write(
+                ">"
+                + str(resultFile.id)
+                + " (reverse)\n"
+                + str(resultFile.seq.reverse_complement())
+                + "\n"
+            )
+
+
+if __name__ == "__main__":
+    main()

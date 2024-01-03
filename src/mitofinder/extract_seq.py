@@ -18,18 +18,23 @@ def read_fasta(fp):
         yield (name, "".join(seq))
 
 
-allCDS = open(sys.argv[1])
+def main():
+    allCDS = open(sys.argv[1])
 
-dico = {}
-for name, seq in read_fasta(allCDS):
-    gene = name.split("@")[1]
-    sp = name.split("@")[0]
-    if dico.has_key(gene):
-        if len(seq) > len(dico.get(gene)):
+    dico = {}
+    for name, seq in read_fasta(allCDS):
+        gene = name.split("@")[1]
+        sp = name.split("@")[0]
+        if dico.has_key(gene):
+            if len(seq) > len(dico.get(gene)):
+                dico[gene] = seq
+        else:
             dico[gene] = seq
-    else:
-        dico[gene] = seq
 
-for cle, valeur in dico.items():
-    fout = open(cle + "_all_sp.fasta", "a")
-    fout.write(sp + "\n" + valeur + "\n")
+    for cle, valeur in dico.items():
+        fout = open(cle + "_all_sp.fasta", "a")
+        fout.write(sp + "\n" + valeur + "\n")
+
+
+if __name__ == "__main__":
+    main()
