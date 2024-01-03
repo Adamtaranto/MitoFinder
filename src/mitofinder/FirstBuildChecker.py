@@ -2,9 +2,9 @@ from mitofinder import tRNAscanChecker, circularizationCheck, geneChecker
 
 from Bio import SeqIO, SearchIO
 
+from bisect import bisect_left
 from subprocess import Popen
 import shlex, os
-from bisect import bisect_left
 
 
 def checkResults(
