@@ -4,7 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mitofinder"
-authors = [{ name = "Remi Allio", email = "remi.allio@umontpellier.fr" }]
+authors = [
+    { name = "Remi Allio", email = "remi.allio@umontpellier.fr" },
+    { name = "Alex Schomaker-Bastos", email = "alexschomaker@ufrj.br" },
+]
 
 description = "MitoFinder: efficient automated large-scale extraction of mitogenomic data from high throughput sequencing data."
 readme = "README.md"
