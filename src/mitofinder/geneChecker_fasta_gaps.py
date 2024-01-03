@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 from mitofinder import genbankOutput, tRNAscanChecker
 from mitofinder.tRNAscanChecker import tRNAconvert, prettyRNAName
 from mitofinder.utils import is_avail
