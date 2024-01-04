@@ -1,6 +1,8 @@
 import mitofinder.FirstBuildChecker as FirstBuildChecker
+
 from shutil import copyfile
 from subprocess import Popen
+import logging
 import os
 import shlex
 import shutil
@@ -8,7 +10,6 @@ import subprocess
 import time
 
 # deal with combo paired and single reads
-# remove manual spades path
 
 
 def runMetaspades(
@@ -19,20 +20,13 @@ def runMetaspades(
     refSeqFile=None,
     organismType=2,
     maxMemory="",
-    logfile="logfile",
     override=False,
 ):
-    pathToMetaspades = metaspadesFolder
     bestBuild = None
-
-    logfile = open(logfile, "a")
-    print("Starting Assembly step with MetaSPAdes ")
-    logfile.write("Starting Assembly step with MetaSPAdes " + "\n")
+    logging.info("Starting Assembly step with MetaSPAdes ")
 
     pathToWork = os.getcwd() + "/"
-    print("Result files will be saved here: ")
-    print(pathToWork + processName + "_metaspades/")
-    logfile.write(
+    logging.info(
         "Result files will be saved here: "
         + "\n"
         + pathToWork
@@ -74,21 +68,8 @@ def runMetaspades(
     out = processName + "_metaspades"
     metaspades = "yes"
     if os.path.isdir(out) and override == False:
-        print("\n####################################")
-        print(
-            "\n WARNING : "
-            + pathToWork
-            + out
-            + " already exists. (use --override option)"
-        )
-        print("Mitofinder will skip MetaSPAdes step")
-        print(
-            "\nIf you want to run MetaSPAdes again, kill the mitofinder process, remove (or use --override) or rename the MetaSPAdes result folder, and restart mitofinder\n"
-        )
-        print("#####################################\n")
-        logfile.write(
-            "\n####################################"
-            + "\n"
+        logging.warning(
+            "####################################"
             + "\n WARNING : "
             + pathToWork
             + out
@@ -97,9 +78,7 @@ def runMetaspades(
             + "Mitofinder will skip MetaSPAdes step"
             + "\n"
             + "\nIf you want to run MetaSPAdes again, kill the mitofinder process, remove (or use --override) or rename the MetaSPAdes result folder, and restart mitofinder\n"
-            + "\n"
             + "#####################################\n"
-            + "\n"
         )
         time.sleep(2)
         metaspades = "no"
@@ -109,16 +88,14 @@ def runMetaspades(
         with open(pathToWork + "metaspades.log", "w") as metaspadesLogFile:
             if t == "PE":
                 if maxMemory == "":
-                    command = "%smetaspades.py -1 %s -2 %s -o %s -t %s" % (
-                        pathToMetaspades,
+                    command = "metaspades.py -1 %s -2 %s -o %s -t %s" % (
                         read1,
                         read2,
                         out,
                         processorsToUse,
                     )
                 else:
-                    command = "%smetaspades.py -1 %s -2 %s -o %s -t %s -m %s" % (
-                        pathToMetaspades,
+                    command = "metaspades.py -1 %s -2 %s -o %s -t %s -m %s" % (
                         read1,
                         read2,
                         out,
@@ -136,9 +113,7 @@ def runMetaspades(
                     not os.path.isfile(pathToWork + "/" + out + "/" + "scaffolds.fasta")
                     == True
                 ):
-                    print("\n ERROR: MetaSPAdes didn't run well")
-                    print("Please check log file : " + pathToWork + "metaspades.log")
-                    logfile.write(
+                    logging.error(
                         "\n ERROR: MetaSPAdes didn't run well"
                         + "\n"
                         + "Please check log file : "
@@ -146,21 +121,19 @@ def runMetaspades(
                         + "metaspades.log"
                         + "\n"
                     )
-                    exit()
+                    exit(1)
                 # copyfile(pathToWork+"/"+out+"/"+"scaffolds.fasta", pathToWork+"/"+processName+".scafSeq")
                 # check Megahit output to see if reference sequence was built
 
             if t == "SE":
                 if maxMemory == "":
-                    command = "%smetaspades.py -s %s -o %s -t %s" % (
-                        pathToMetaspades,
+                    command = "metaspades.py -s %s -o %s -t %s" % (
                         read1,
                         out,
                         processorsToUse,
                     )
                 else:
-                    command = "%smetaspades.py -s %s -o %s -t %s -m %s" % (
-                        pathToMetaspades,
+                    command = "metaspades.py -s %s -o %s -t %s -m %s" % (
                         read1,
                         out,
                         processorsToUse,
@@ -177,9 +150,7 @@ def runMetaspades(
                     not os.path.isfile(pathToWork + "/" + out + "/" + "scaffolds.fasta")
                     == True
                 ):
-                    print("\n MetaSPAdes didn't run well")
-                    print("Please check log file : " + pathToWork + "metaspades.log")
-                    logfile.write(
+                    logging.error(
                         "\n MetaSPAdes didn't run well"
                         + "\n"
                         + "Please check log file : "
@@ -187,7 +158,5 @@ def runMetaspades(
                         + "metaspades.log"
                         + "\n"
                     )
-                    exit()
+                    exit(1)
                 # copyfile(pathToWork+"/"+out+"/"+"scaffolds.fasta", pathToWork+"/"+processName+".scafSeq")
-
-    logfile.close()
