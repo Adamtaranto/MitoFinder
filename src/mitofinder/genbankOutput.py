@@ -23,11 +23,13 @@ def genbankOutput(
         finalResults.seq = finalResults.seq.upper()
         finalResults.name = finalResults.name[0:10] + "_draft"
         finalResults.id = finalResults.name[0:10] + "_draft"
+        finalResults.annotations["molecule_type"] = "DNA"
         if (
             len(finalResults.name) > 16
         ):  # has to 16 characters long at max, or else genbank file throws error
             finalResults.name = finalResults.name[0:16]
             finalResults.id = finalResults.id[0:16]
+
         count = SeqIO.write(finalResults, outputResult, "genbank")
 
     dico_intron = {}
