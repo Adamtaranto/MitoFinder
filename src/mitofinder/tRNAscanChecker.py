@@ -1,10 +1,11 @@
+from mitofinder.utils import is_avail, add_to_path
+
 from Bio import SeqIO
 from Bio.Data import CodonTable
 
 from subprocess import Popen
 import shlex, sys, os
-
-# remove config refs
+import logging
 
 
 class Assembly:
@@ -63,7 +64,7 @@ class Assembly:
                             tRNAintronBegin = 0
                             tRNAintronEnd = 0
                             if tRNAintronBegin > 0:
-                                print(
+                                logging.warning(
                                     f"WARNING: {tRNAtype} found with an intron. Strange result, check .trnascan file"
                                 )
                             tRNAscore = float(tRNAinfos[3])
@@ -101,7 +102,7 @@ class Assembly:
                             tRNAintronBegin = int(tRNAinfos[6])
                             tRNAintronEnd = int(tRNAinfos[7])
                             if tRNAintronBegin > 0:
-                                print(
+                                logging.warning(
                                     "	WARNING: %s found with an intron. Strange result, check .trnascan file"
                                     % tRNAtype
                                 )
@@ -240,48 +241,40 @@ def tRNAscanCheck(
     """
     Use tRNAscan-SE to look for tRNAs and hold it's positions and scores in the tRNA Class.
     """
-    if skipTRNA == False:
-        module_dir = os.path.dirname(__file__)
-        module_dir = os.path.abspath(module_dir)
-        scanInput = resultFile
-        if tRNAscan == "mitfi":
-            module_dir = os.path.join(module_dir, "mitfi/")
-            outputName = resultFile[0:-6] + ".mitfi"
-        elif tRNAscan == "trnascan":
-            module_dir = os.path.join(module_dir, "trnascanSE/tRNAscan-SE-2.0/")
-            outputName = resultFile[0:-6] + ".trnascan"
-        elif tRNAscan == "arwen":
-            module_dir = os.path.join(module_dir, "arwen/")
-            outputName = resultFile[0:-6] + ".arwen"
-        cfg_dir = os.path.dirname(__file__)
-        cfg_full_path = os.path.join(cfg_dir, "Mitofinder.config")
 
-        with open(cfg_full_path, "r") as configFile:
-            # grabbing the tRNAscan-SE folder from the config file...
-            for line in configFile:
-                if "#" != line[0] and line != "\n":
-                    configPart = (
-                        line.lower().replace("\n", "").replace(" ", "").split("=")[0]
-                    )
-                    if configPart == "mitfifolder":
-                        MitFiFolder = (
-                            line.replace("\n", "").replace(" ", "").split("=")[-1]
-                        )
-                        if MitFiFolder.lower() == "default":
-                            MitFiFolder = module_dir
-                    elif configPart == "arwenfolder":
-                        ArwenFolder = (
-                            line.replace("\n", "").replace(" ", "").split("=")[-1]
-                        )
-                        if ArwenFolder.lower() == "default":
-                            ArwenFolder = module_dir
-                    elif configPart == "trnascanfolder":
-                        tRNAscanFolder = (
-                            line.replace("\n", "").replace(" ", "").split("=")[-1]
-                        )
-                        if tRNAscanFolder.lower() == "default":
-                            tRNAscanFolder = module_dir
-        # adding the Arwen folder to these environments in the OS to avoid errors being thrown by Arwen
+    if not skipTRNA:
+        module_dir = os.path.dirname(__file__)
+        module_dir = os.path.abspath(os.path.join(module_dir, "../../bin"))
+        scanInput = resultFile
+
+        if tRNAscan == "mitfi":
+            # If not avail on PATH add bundled package to path.
+            if not is_avail(["mitfi.jar"], kill=False):
+                module_dir = os.path.join(module_dir, "mitfi")
+                add_to_path(module_dir)
+                # or let mitofinder handle paths later
+                MitFiFolder = module_dir
+            # Set output file extension
+            outputName = resultFile[0:-6] + ".mitfi"
+
+        elif tRNAscan == "trnascan":
+            # Kill if not avail on PATH
+            is_avail(["trnascan-SE"])
+            # Set output file extension
+            outputName = resultFile[0:-6] + ".trnascan"
+
+        elif tRNAscan == "arwen":
+            # If not avail on PATH add bundled package to path.
+            if not is_avail(["arwen"], kill=False):
+                module_dir = os.path.join(module_dir, "arwen")
+                add_to_path(module_dir)
+                # or let mitofinder handle paths later
+                ArwenFolder = module_dir
+
+            # Set output file extension
+            outputName = resultFile[0:-6] + ".arwen"
+
+        # Adding the Arwen folder to these environments in the OS to avoid errors being thrown by Arwen
         if tRNAscan == "mitfi":
             try:
                 os.environ["PATH"] += os.pathsep + MitFiFolder
@@ -289,15 +282,7 @@ def tRNAscanCheck(
             except KeyError:
                 pass
             except:
-                print("MitFi path is not correct. Change it in Mitofinder.config")
-        elif tRNAscan == "trnascan":
-            try:
-                os.environ["PATH"] += os.pathsep + tRNAscanFolder
-                os.environ["PERL5LIB"] += os.pathsep + tRNAscanFolder
-            except KeyError:
-                pass
-            except:
-                print("tRNAscan path is not correct. Change it in Mitofinder.config")
+                logging.error("Error setting MitFi path.")
         elif tRNAscan == "arwen":
             try:
                 os.environ["PATH"] += os.pathsep + ArwenFolder
@@ -305,7 +290,7 @@ def tRNAscanCheck(
             except KeyError:
                 pass
             except:
-                print("Arwen path is not correct. Change it in Mitofinder.config")
+                logging.error("Error setting Arwen path.")
 
         if os.path.exists(
             outputName
@@ -354,9 +339,7 @@ def tRNAscanCheck(
                     out
                 ):  # remove result file if it already exists so that tRNAscan doesn't throw another error
                     os.remove(out)
-                print("")
-                print("MiTFi failed.")
-                print("")
+                logging.warning("MiTFi failed.")
                 return False
 
         if tRNAscan == "trnascan":
@@ -430,9 +413,7 @@ def tRNAscanCheck(
                 )
                 return thisSequenceResult
             except:
-                print("")
-                print("tRNAscan-SE failed. Check it's logs for more details.")
-                print("")
+                logging.warning("tRNAscan-SE failed. Check it's logs for more details.")
                 return False
 
         elif tRNAscan == "arwen":
@@ -484,7 +465,7 @@ def tRNAscanCheck(
                             + " -w "
                             + scanInput
                         )
-                        print(command)
+                        logging.info(command)
                         args = shlex.split(command)
                         tRNAscanRun = Popen(
                             args,
@@ -499,9 +480,7 @@ def tRNAscanCheck(
                 )
                 return thisSequenceResult
             except:
-                print("")
-                print("Arwen failed. Check log files for more details.")
-                print("")
+                logging.warning("Arwen failed. Check log files for more details.")
                 return False
     else:  # if tRNA = True
         return Assembly(resultFile, None, hasCircularized)
