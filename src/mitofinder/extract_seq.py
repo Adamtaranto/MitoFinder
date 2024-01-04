@@ -25,7 +25,7 @@ def main():
     for name, seq in read_fasta(allCDS):
         gene = name.split("@")[1]
         sp = name.split("@")[0]
-        if dico.has_key(gene):
+        if gene in dico:
             if len(seq) > len(dico.get(gene)):
                 dico[gene] = seq
         else:

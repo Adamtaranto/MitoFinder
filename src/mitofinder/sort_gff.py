@@ -47,8 +47,9 @@ def main():
                             )
                         )
 
-                        if not dico_lstart.has_key(
-                            feature.qualifiers["gene"][0].split("_")[0]
+                        if (
+                            not feature.qualifiers["gene"][0].split("_")[0]
+                            in dico_lstart
                         ):
                             dico_lstart[
                                 feature.qualifiers["gene"][0].split("_")[0]
@@ -76,9 +77,7 @@ def main():
                                 ]
                             )
                         )
-                        if not dico_lend.has_key(
-                            feature.qualifiers["gene"][0].split("_")[0]
-                        ):
+                        if not feature.qualifiers["gene"][0].split("_")[0] in dico_lend:
                             dico_lend[
                                 feature.qualifiers["gene"][0].split("_")[0]
                             ] = feature.location.start
@@ -99,8 +98,9 @@ def main():
                                     feature.qualifiers["gene"][0].split("_")[0]
                                 ] = str(stop.reverse_complement())
                     else:
-                        if not dico_lstart.has_key(
-                            feature.qualifiers["gene"][0].split("_")[0]
+                        if (
+                            not feature.qualifiers["gene"][0].split("_")[0]
+                            in dico_lstart
                         ):
                             dico_lstart[
                                 feature.qualifiers["gene"][0].split("_")[0]
@@ -139,9 +139,7 @@ def main():
                                         )
                                     )
                                 )
-                        if not dico_lend.has_key(
-                            feature.qualifiers["gene"][0].split("_")[0]
-                        ):
+                        if not feature.qualifiers["gene"][0].split("_")[0] in dico_lend:
                             dico_lend[
                                 feature.qualifiers["gene"][0].split("_")[0]
                             ] = feature.location.end
@@ -183,9 +181,7 @@ def main():
                         str(record.seq[feature.location.end - 3 : feature.location.end])
                     )
 
-                    if not dico_lstart.has_key(
-                        feature.qualifiers["gene"][0].split("_")[0]
-                    ):
+                    if not feature.qualifiers["gene"][0].split("_")[0] in dico_lstart:
                         dico_lstart[
                             feature.qualifiers["gene"][0].split("_")[0]
                         ] = feature.location.end
@@ -210,9 +206,7 @@ def main():
                             ]
                         )
                     )
-                    if not dico_lend.has_key(
-                        feature.qualifiers["gene"][0].split("_")[0]
-                    ):
+                    if not feature.qualifiers["gene"][0].split("_")[0] in dico_lend:
                         dico_lend[
                             feature.qualifiers["gene"][0].split("_")[0]
                         ] = feature.location.start
@@ -231,9 +225,7 @@ def main():
                                 stop.reverse_complement()
                             )
                 else:
-                    if not dico_lstart.has_key(
-                        feature.qualifiers["gene"][0].split("_")[0]
-                    ):
+                    if not feature.qualifiers["gene"][0].split("_")[0] in dico_lstart:
                         dico_lstart[
                             feature.qualifiers["gene"][0].split("_")[0]
                         ] = feature.location.start
@@ -267,9 +259,7 @@ def main():
                                     )
                                 )
                             )
-                    if not dico_lend.has_key(
-                        feature.qualifiers["gene"][0].split("_")[0]
-                    ):
+                    if not feature.qualifiers["gene"][0].split("_")[0] in dico_lend:
                         dico_lend[
                             feature.qualifiers["gene"][0].split("_")[0]
                         ] = feature.location.end
@@ -453,7 +443,7 @@ def main():
     dico_product["rrnS"] = "12S ribosomal RNA"
 
     for k, v in sorted_dict.items():
-        if not dicotrna.has_key(v.split("\t")[8]):
+        if not v.split("\t")[8] in dicotrna:
             col1 = seqID
             col2 = v.split("\t")[1]
             col3 = v.split("\t")[2]
@@ -485,7 +475,7 @@ def main():
                             tout.write(start + "\t" + stop + "\t" + "gene\n")
                             tout.write("\t\t\tgene\t" + col9 + "\n")
                             tout.write(start + "\t" + stop + "\t" + "CDS\n")
-                            if dico_product.has_key(col9):
+                            if col9 in dico_product:
                                 tout.write(
                                     "\t\t\tproduct\t" + dico_product.get(col9) + "\n"
                                 )
@@ -511,7 +501,7 @@ def main():
                             tout.write(start + "\t" + stop + "\t" + "gene\n")
                             tout.write("\t\t\tgene\t" + col9 + "\n")
                             tout.write(start + "\t" + stop + "\t" + "CDS\n")
-                            if dico_product.has_key(col9):
+                            if col9 in dico_product:
                                 tout.write(
                                     "\t\t\tproduct\t" + dico_product.get(col9) + "\n"
                                 )
@@ -804,7 +794,7 @@ def main():
                     for line in list_tmp_cds:
                         tout.write(line + "\n")
 
-                    if dico_product.has_key(col9):
+                    if col9 in dico_product:
                         tout.write("\t\t\tproduct\t" + dico_product.get(col9) + "\n")
                     else:
                         tout.write("\t\t\tproduct\t" + col9 + "\n")
@@ -957,7 +947,7 @@ def main():
                         tout.write("\t\t\tgene\t" + col9 + "\n")
                         tout.write(col4 + "\t" + col5 + "\t" + "rRNA\n")
                         tout.write("\t\t\tgene\t" + col9 + "\n")
-                        if dico_product.has_key(col9):
+                        if col9 in dico_product:
                             tout.write(
                                 "\t\t\tproduct\t" + dico_product.get(col9) + "\n"
                             )
@@ -968,7 +958,7 @@ def main():
                         tout.write("\t\t\tgene\t" + col9 + "\n")
                         tout.write(col5 + "\t" + col4 + "\t" + "rRNA\n")
                         tout.write("\t\t\tgene\t" + col9 + "\n")
-                        if dico_product.has_key(col9):
+                        if col9 in dico_product:
                             tout.write(
                                 "\t\t\tproduct\t" + dico_product.get(col9) + "\n"
                             )
@@ -1207,7 +1197,7 @@ def main():
                     for line in list_tmp_cds:
                         tout.write(line + "\n")
 
-                    if dico_product.has_key(col9):
+                    if col9 in dico_product:
                         tout.write("\t\t\tproduct\t" + dico_product.get(col9) + "\n")
                     else:
                         tout.write("\t\t\tproduct\t" + col9 + "\n")
@@ -1226,7 +1216,7 @@ def main():
                         tout.write("\t\t\tgene\t" + col9 + "\n")
                         tout.write(col4 + "\t" + col5 + "\t" + "rRNA\n")
                         tout.write("\t\t\tgene\t" + col9 + "\n")
-                        if dico_product.has_key(col9):
+                        if col9 in dico_product:
                             tout.write(
                                 "\t\t\tproduct\t" + dico_product.get(col9) + "\n"
                             )
@@ -1237,7 +1227,7 @@ def main():
                         tout.write("\t\t\tgene\t" + col9 + "\n")
                         tout.write(col5 + "\t" + col4 + "\t" + "rRNA\n")
                         tout.write("\t\t\tgene\t" + col9 + "\n")
-                        if dico_product.has_key(col9):
+                        if col9 in dico_product:
                             tout.write(
                                 "\t\t\tproduct\t" + dico_product.get(col9) + "\n"
                             )
@@ -1476,7 +1466,7 @@ def main():
                     for line in list_tmp_cds:
                         tout.write(line + "\n")
 
-                    if dico_product.has_key(col9):
+                    if col9 in dico_product:
                         tout.write("\t\t\tproduct\t" + dico_product.get(col9) + "\n")
                     else:
                         tout.write("\t\t\tproduct\t" + col9 + "\n")

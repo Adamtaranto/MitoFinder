@@ -1057,7 +1057,7 @@ if __name__ == "__main__":
         outputFile = open(outputFile, "w")
         seq = SeqIO.read(open(resultFile, "rU"), "fasta")
         seq_name = finalResults.description
-        genes = {}
+        genes = dict()
         for gbkFeature in finalResults.features:
             for qualifier in gbkFeature.qualifiers:
                 if qualifier == "product" or qualifier == "gene":
@@ -1065,7 +1065,7 @@ if __name__ == "__main__":
                         direction = "+"
                     if gbkFeature.location.strand == -1:
                         direction = "-"
-                    if not genes.has_key(gbkFeature.qualifiers[qualifier]):
+                    if not gbkFeature.qualifiers[qualifier] in genes:
                         outputFile.write(
                             seq_name
                             + "\t"

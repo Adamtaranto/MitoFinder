@@ -1070,15 +1070,17 @@ def main():
                 else:
                     if args.ignore == False and args.newG == False:
                         dico_unknown[name] = name
-                    elif args.newG == True and not dico_genes.has_key(name):
-                        logging.warning(f"Gene named {name} in the reference file is not recognized by MitoFinder. MitoFinder will try to annotate it.")
+                    elif args.newG == True and not name in dico_genes:
+                        logging.warning(
+                            f"Gene named {name} in the reference file is not recognized by MitoFinder. MitoFinder will try to annotate it."
+                        )
 
-                    elif args.newG == True and dico_genes.has_key(name):
+                    elif args.newG == True and name in dico_genes:
                         pass
                     elif args.ignore == True and args.newG == False:
-                        if not dico_unknown.has_key(name):
+                        if not name dico_unknown:
                             logging.warning(
-                                f'WARNING: Gene named {name} in the reference file is not recognized by MitoFinder. This gene will not be annotated by MitoFinder."
+                                f"WARNING: Gene named {name} in the reference file is not recognized by MitoFinder. This gene will not be annotated by MitoFinder."
                             )
                             dico_unknown[name] = name
                         name = "no"
@@ -1141,11 +1143,11 @@ def main():
             if len(dico_unknown) > 0 and args.ignore == False and args.newG == False:
                 if len(dico_unknown) == 1:
                     logging.error(
-                        f'ERROR: Gene named {name} in the reference file(s) are not recognized by MitoFinder.\n \
+                        f"ERROR: Gene named {name} in the reference file(s) are not recognized by MitoFinder.\n \
                         This gene is not a standard mitochondrial gene (use --ignore or --new-genes options) or please change it to one of the following gene names: \n \
                         COX1; COX2; COX3; CYTB; ND1; ND2; ND3; ND4; ND4L; ND5; ND6; ATP8; ATP6; rrnL; rrnS \n \
                         If you decide to use the new-genes option, please be aware that the names of the new genes in your reference(s) should be homogenized to be considered as unique by MitoFinder (example : Gene1 is not equal to gene1 or gene-1 , use one unique name for all equivalent genes in the different references) \n \
-                        Aborting.'
+                        Aborting."
                     )
                 else:
                     logging.error(
@@ -1338,7 +1340,7 @@ def main():
         formatDB.wait()
 
         logging.info("Running mitochondrial contigs identification step...")
-        
+
         with open(args.processName + "_blast_out.txt", "w") as BlastResult:
             command = (
                 "blastn -db "
@@ -1383,13 +1385,13 @@ def main():
                     direction = "+"
                 else:
                     direction = "-"
-                if dico_direction.has_key(contig):
+                if contig in dico_direction:
                     dico_direction[contig] = (
                         dico_direction.get(contig) + ";" + direction
                     )
                 else:
                     dico_direction[contig] = direction
-                if dico_score.has_key(contig):
+                if contig in dico_score):
                     if score > dico_score.get(contig):
                         dico_score[contig] = score
                 else:
@@ -1411,7 +1413,8 @@ def main():
                 logging.warning(
                     "MitoFinder dit not found any mitochondrial contig with a size lower than "
                     + str(args.MaxContigSize)
-                    + " bp." )
+                    + " bp."
+                )
                 exit(1)
         elif len(collections.OrderedDict(sorted_y)) == 1:
             logging.info(
@@ -1426,7 +1429,7 @@ def main():
             )
             if args.maxContig == 0:
                 logging.info("Did not check for circularization")
-            
+
             logging.info(
                 "MitoFinder found "
                 + str(len(collections.OrderedDict(sorted_y)))
@@ -1476,7 +1479,7 @@ def main():
         if fl == 1:
             fout = open(pathtowork + "/" + args.processName + "_contig.fasta", "w")
             for r in SeqIO.parse(pathtowork + "/" + link_file, "fasta"):
-                if ID_dico.has_key(r.id):
+                if r.id in ID_dico:
                     SeqIO.write(r, fout, "fasta")
             fout.close()
 
@@ -1688,7 +1691,7 @@ def main():
                         query = line.split("\t")[1].split("\t")[0]
                         testedGene = line.split("\t")[1].split("@")[1].split("\t")[0]
                         score = line.split("\t")[11]
-                        if dico_query.has_key(testedGene):
+                        if testedGene in dico_query:
                             if float(score) > float(bestScore):
                                 dico_query[testedGene] = query
                                 bestScore = score
@@ -1923,8 +1926,7 @@ def main():
                         + "/geneChecker_error.log or geneChecker.log to see what happened\nAborting\n"
                     )
                     exit(1)
-            elif tRNA == "mitfi":   
-
+            elif tRNA == "mitfi":
                 if check_if_string_in_file(
                     pathtowork + "/geneChecker.log", "MiTFi failed."
                 ) or (
@@ -1968,7 +1970,7 @@ def main():
             # Extract every contigs one by one
             contg_list = open(pathtowork + "/" + "contig_list.txt", "w")
             for r in SeqIO.parse(pathtowork + "/" + link_file, "fasta"):
-                if ID_dico.has_key(r.id):
+                if r.id in ID_dico:
                     fout = open(
                         pathtowork
                         + "/"
@@ -2203,7 +2205,7 @@ def main():
                                 line.split("\t")[1].split("@")[1].split("\t")[0]
                             )
                             score = line.split("\t")[-1]
-                            if dico_query.has_key(testedGene):
+                            if testedGene in dico_query:
                                 if float(score) > float(bestScore):
                                     dico_query[testedGene] = query
                                     bestScore = score
@@ -2546,7 +2548,7 @@ def main():
                         if "translation" in feature.qualifiers:
                             seq_aa = feature.qualifiers["translation"][0]
                     featureName = "".join(featureName.split()).split("_")[0]
-                    if dgen.has_key(featureName):
+                    if featureName in dgen:
                         dgen[featureName] += 1
                     else:
                         dgen[featureName] = 1
@@ -2579,14 +2581,14 @@ def main():
                             )
                             out_fasta_aa.write(str(seq_aa) + "\n")
 
-                    elif not dico_cds_n.has_key(featureName) and args.merge == True:
+                    elif not featureName in dico_cds_n and args.merge == True:
                         gnb = gnb + 1
                         dico_cds_n[featureName] = 1
                         dico_cds_nt[featureName] = str(feature.extract(record).seq)
                         if str(seq_aa) != "":
                             dico_cds_aa[featureName] = str(seq_aa)
                     elif (
-                        dico_cds_n.has_key(featureName)
+                        featureName in dico_cds_n
                         and dico_cds_n.get(featureName) < dgen.get(featureName)
                         and args.merge == True
                     ):
@@ -2608,7 +2610,7 @@ def main():
                                     dico_cds_aa.get(featureName)
                                 )
                     else:
-                        if not dico_cds_n.has_key(featureName):
+                        if not featureName in dico_cds_n:
                             dico_cds_n[featureName] = 1
                             gnb = gnb + 1
                         out_fasta_nt.write(
@@ -2622,7 +2624,7 @@ def main():
                             out_fasta_aa.write(str(seq_aa) + "\n")
 
                     if (
-                        dico_cds_n.has_key(featureName)
+                        featureName in dico_cds_n
                         and dico_cds_n.get(featureName) == dgen.get(featureName)
                         and args.merge == True
                     ):
@@ -2733,7 +2735,7 @@ def main():
         ):
             for name, seq in read_fasta(open(f, "r")):
                 gene = name.split("@")[1]
-                if dico_genes.has_key(gene):
+                if gene in dico_genes:
                     dico_gcount[gene] = dico_gcount.get(gene) + 1
                     if len(dico_genes.get(gene)) < len(seq):
                         dico_genes[gene] = seq
@@ -2769,7 +2771,7 @@ def main():
         ):
             for name, seq in read_fasta(open(f, "r")):
                 gene = name.split("@")[1]
-                if dico_genes.has_key(gene):
+                if gene in dico_genes:
                     if len(dico_genes.get(gene)) < len(seq):
                         dico_genes[gene] = seq
                 else:

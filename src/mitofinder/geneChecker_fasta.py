@@ -664,7 +664,7 @@ if __name__ == "__main__":
                         direction = "+"
                     if gbkFeature.location.strand == -1:
                         direction = "-"
-                    if not genes.has_key(gbkFeature.qualifiers[qualifier]):
+                    if not gbkFeature.qualifiers[qualifier] in genes:
                         outputFile.write(
                             seq_name
                             + "\t"

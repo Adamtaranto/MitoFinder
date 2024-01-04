@@ -38,7 +38,7 @@ def genbankOutput(
             or "ribosomal" in thisFeatureAlignment.seq2.lower()
             or "rnr" in thisFeatureAlignment.seq2.lower()
         ):
-            if dico_intron.has_key(thisFeatureAlignment.seq2.split("_")[0]):
+            if thisFeatureAlignment.seq2.split("_")[0] in dico_intron:
                 dico_intron[thisFeatureAlignment.seq2.split("_")[0]] += 1
             else:
                 dico_intron[thisFeatureAlignment.seq2.split("_")[0]] = 1
@@ -71,7 +71,7 @@ def genbankOutput(
                 main_feature_qualifiers["gene"] = thisFeatureAlignment.seq2
                 main_feature_type = "gene"
             gene = thisFeatureAlignment.seq2.split("_")[0]
-            if dico_gene.has_key(gene):
+            if gene in dico_gene:
                 dico_gene[gene] += 1
             else:
                 dico_gene[gene] = 1
