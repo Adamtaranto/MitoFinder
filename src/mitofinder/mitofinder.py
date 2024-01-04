@@ -1,15 +1,15 @@
 from mitofinder._version import __version__
 from mitofinder.utils import (
+    add_to_path,
+    check_files,
+    check_if_string_in_file,
+    find_duplicates,
+    get_abs_if_found,
     is_avail,
     is_java_installed,
-    find_duplicates,
-    check_files,
-    get_abs_if_found,
     setup_directory,
-    check_if_string_in_file,
 )
 from mitofinder import (
-    circularizationCheck,
     genbankOutput,
     geneChecker,
     runIDBA,
@@ -23,14 +23,13 @@ from Bio import SeqIO, SeqFeature, SeqUtils
 from argparse import RawTextHelpFormatter
 from datetime import datetime
 from shutil import copyfile
-from subprocess import Popen
+from subprocess import Popen, PIPE
 import argparse, os, shlex, shutil, sys
 import collections
 import glob
 import logging
 import operator
 import os.path
-import subprocess
 import time
 
 
@@ -148,7 +147,7 @@ def mainArgs():
         "--seqid",
         help="Job ID to be used throughout the process",
         required=True,
-        dest="processName",
+        dest="jobName",
     )
     parser.add_argument(
         "-1",
@@ -170,7 +169,7 @@ def mainArgs():
     parser.add_argument(
         "-a",
         "--assembly",
-        help="File with your own assembly",
+        help="File with your own mitochondrial genome assembly.",
         default="",
         dest="Assembly",
     )
@@ -415,7 +414,7 @@ def main():
 
     # Log settings
     logging.info("Command: %s" % " ".join(sys.argv))
-    logging.info("\nJob name: " + args.processName)
+    logging.info("Job name: " + args.jobName)
     logging.info(f"You have selected translation table: {code_dict[args.organismType]}")
 
     module_dir = os.path.dirname(__file__)
@@ -543,10 +542,10 @@ def main():
 
     # Populate JOB.input file
     if args.PE1 and args.PE2:
-        inputfile = open(args.processName + ".input", "w")
+        inputfile = open(args.jobName + ".input", "w")
         inputfile.write("type=" + T + "\n" + q1 + "\n" + q2)
         inputfile.close()
-        args.inputFile = os.path.join(initial_path, args.processName + ".input")
+        args.inputFile = os.path.join(initial_path, args.jobName + ".input")
 
     if args.SE:
         T = "SE"
@@ -559,10 +558,10 @@ def main():
 
     # Populate JOB.input file
     if args.SE:
-        inputfile = open(args.processName + ".input", "w")
+        inputfile = open(args.jobName + ".input", "w")
         inputfile.write("type=" + T + "\n" + q3)
         inputfile.close()
-        args.inputFile = os.path.join(initial_path, args.processName + ".input")
+        args.inputFile = os.path.join(initial_path, args.jobName + ".input")
 
     args.coveCutOff = 7
     if args.numt == True:
@@ -579,7 +578,7 @@ def main():
         args.nWalk = 0
 
     # Create output directory
-    pathtowork = os.path.join(os.getcwd(), args.processName)
+    pathtowork = os.path.join(os.getcwd(), args.jobName)
     logging.info("Creating Output directory : " + pathtowork)
     setup_directory(pathtowork)
 
@@ -595,12 +594,14 @@ def main():
             pathToArwenFolder = os.path.abspath(
                 os.path.join(module_dir, "../../bin/arwen/")
             )
+            add_to_path(pathToArwenFolder)
             logging.info("Using bundled arwen: {pathToArwenFolder}")
     elif args.tRNAannotation == "mitfi":
         if not is_avail(["mitfi.jar"], kill=False):
             pathToMitfiFolder = os.path.abspath(
                 os.path.join(module_dir, "../../bin/mitfi/")
             )
+            add_to_path(pathToMitfiFolder)
             logging.info("Using bundled mitfi.jar: {pathToMitfiFolder}")
 
     if not args.Assembly:
@@ -653,10 +654,10 @@ def main():
                     c += 1
                     refSeq = open(gbk_filename).read()
                     x = refSeq.split("LOCUS   ")[c]
-                    tmp = open(args.processName + "_tmp.gb", "w")
+                    tmp = open(args.jobName + "_tmp.gb", "w")
                     tmp.write("LOCUS   " + x)
                     tmp.close()
-                    record = SeqIO.read(open(args.processName + "_tmp.gb"), "genbank")
+                    record = SeqIO.read(open(args.jobName + "_tmp.gb"), "genbank")
                     for feature in record.features:
                         if feature.type.lower() == "cds":
                             if "gene" in feature.qualifiers:
@@ -762,7 +763,7 @@ def main():
                                     )
                                     listOfImportantFeatures[featureName] = feature
                                     s = 1
-                os.remove(args.processName + "_tmp.gb")
+                os.remove(args.jobName + "_tmp.gb")
 
             else:
                 record = SeqIO.read(open(gbk_filename), "genbank")
@@ -1078,7 +1079,7 @@ def main():
                     elif args.newG == True and name in dico_genes:
                         pass
                     elif args.ignore == True and args.newG == False:
-                        if not name dico_unknown:
+                        if not name in dico_unknown:
                             logging.warning(
                                 f"WARNING: Gene named {name} in the reference file is not recognized by MitoFinder. This gene will not be annotated by MitoFinder."
                             )
@@ -1208,10 +1209,10 @@ def main():
         args.megahit = False
         args.idba = False
         args.metaspades = False
-        if os.path.exists(pathtowork + "/" + args.processName + "_link.scafSeq"):
-            os.remove(pathtowork + "/" + args.processName + "_link.scafSeq")
-        os.symlink(args.Assembly, pathtowork + "/" + args.processName + "_link.scafSeq")
-        link_file = args.processName + "_link.scafSeq"
+        if os.path.exists(pathtowork + "/" + args.jobName + "_link.scafSeq"):
+            os.remove(pathtowork + "/" + args.jobName + "_link.scafSeq")
+        os.symlink(args.Assembly, pathtowork + "/" + args.jobName + "_link.scafSeq")
+        link_file = args.jobName + "_link.scafSeq"
 
     assembler = ""
     if args.megahit == True and args.idba == False and args.metaspades == False:
@@ -1223,7 +1224,7 @@ def main():
     pathOfFinalResults = (
         pathtowork
         + "/"
-        + args.processName
+        + args.jobName
         + "_MitoFinder"
         + assembler
         + "_"
@@ -1239,7 +1240,7 @@ def main():
         # let's call megahit
         if args.megahit == True and args.idba == False and args.metaspades == False:
             firstStep = runMegahit.runMegahit(
-                processName=args.processName,
+                processName=args.jobName,
                 inputFile=args.inputFile,
                 shortestContig=args.shortestContig,
                 processorsToUse=args.processorsToUse,
@@ -1248,7 +1249,7 @@ def main():
                 maxMemory=args.mem,
                 override=args.override,
             )
-            out = args.processName + "_megahit"
+            out = args.jobName + "_megahit"
             if (
                 not os.path.isfile(pathtowork + "/" + out + "/" + out + ".contigs.fa")
                 == True
@@ -1259,19 +1260,19 @@ def main():
                 )
                 exit(1)
             if os.path.exists(
-                pathtowork + "/" + args.processName + "_link_megahit.scafSeq"
+                pathtowork + "/" + args.jobName + "_link_megahit.scafSeq"
             ):
-                os.remove(pathtowork + "/" + args.processName + "_link_megahit.scafSeq")
+                os.remove(pathtowork + "/" + args.jobName + "_link_megahit.scafSeq")
             os.symlink(
                 pathtowork + "/" + out + "/" + out + ".contigs.fa",
-                pathtowork + "/" + args.processName + "_link_megahit.scafSeq",
+                pathtowork + "/" + args.jobName + "_link_megahit.scafSeq",
             )
-            link_file = args.processName + "_link_megahit.scafSeq"
+            link_file = args.jobName + "_link_megahit.scafSeq"
 
         # let's call IDBA-UD
         if args.idba == True:
             firstStep = runIDBA.runIDBA(
-                processName=args.processName,
+                processName=args.jobName,
                 inputFile=args.inputFile,
                 shortestContig=args.shortestContig,
                 processorsToUse=args.processorsToUse,
@@ -1279,27 +1280,25 @@ def main():
                 organismType=args.organismType,
                 override=args.override,
             )
-            out = args.processName + "_idba"
+            out = args.jobName + "_idba"
             if not os.path.isfile(pathtowork + "/" + out + "/contig.fa") == True:
                 logging.info(
                     "\n IDBA-UD didn't run\n"
                     + "Delete or rename the IDBA-UD result folder and restart MitoFinder\n"
                 )
                 exit(1)
-            if os.path.exists(
-                pathtowork + "/" + args.processName + "_link_idba.scafSeq"
-            ):
-                os.remove(pathtowork + "/" + args.processName + "_link_idba.scafSeq")
+            if os.path.exists(pathtowork + "/" + args.jobName + "_link_idba.scafSeq"):
+                os.remove(pathtowork + "/" + args.jobName + "_link_idba.scafSeq")
             os.symlink(
                 pathtowork + "/" + out + "/contig.fa",
-                pathtowork + "/" + args.processName + "_link_idba.scafSeq",
+                pathtowork + "/" + args.jobName + "_link_idba.scafSeq",
             )
-            link_file = args.processName + "_link_idba.scafSeq"
+            link_file = args.jobName + "_link_idba.scafSeq"
 
         # let's call MetaSPAdes
         if args.metaspades == True:
             firstStep = runMetaspades.runMetaspades(
-                processName=args.processName,
+                processName=args.jobName,
                 inputFile=args.inputFile,
                 shortestContig=args.shortestContig,
                 processorsToUse=args.processorsToUse,
@@ -1308,7 +1307,7 @@ def main():
                 maxMemory=args.mem,
                 override=args.override,
             )
-            out = args.processName + "_metaspades"
+            out = args.jobName + "_metaspades"
             if (
                 not os.path.isfile(pathtowork + "/" + out + "/" + "scaffolds.fasta")
                 == True
@@ -1319,16 +1318,14 @@ def main():
                 )
                 exit(1)
             if os.path.exists(
-                pathtowork + "/" + args.processName + "_link_metaspades.scafSeq"
+                pathtowork + "/" + args.jobName + "_link_metaspades.scafSeq"
             ):
-                os.remove(
-                    pathtowork + "/" + args.processName + "_link_metaspades.scafSeq"
-                )
+                os.remove(pathtowork + "/" + args.jobName + "_link_metaspades.scafSeq")
             os.symlink(
                 pathtowork + "/" + out + "/" + "scaffolds.fasta",
-                pathtowork + "/" + args.processName + "_link_metaspades.scafSeq",
+                pathtowork + "/" + args.jobName + "_link_metaspades.scafSeq",
             )
-            link_file = args.processName + "_link_metaspades.scafSeq"
+            link_file = args.jobName + "_link_metaspades.scafSeq"
 
         # identification of contigs matching on the refSeq
         blasteVal = args.blasteVal
@@ -1341,7 +1338,7 @@ def main():
 
         logging.info("Running mitochondrial contigs identification step...")
 
-        with open(args.processName + "_blast_out.txt", "w") as BlastResult:
+        with open(args.jobName + "_blast_out.txt", "w") as BlastResult:
             command = (
                 "blastn -db "
                 + link_file
@@ -1355,13 +1352,13 @@ def main():
             blast.wait()
 
         os.rename(
-            args.processName + "_blast_out.txt",
-            pathtowork + "/" + args.processName + "_blast_out.txt",
+            args.jobName + "_blast_out.txt",
+            pathtowork + "/" + args.jobName + "_blast_out.txt",
         )
 
-        mitoblast = open(pathtowork + "/" + args.processName + "_blast_out.txt")
+        mitoblast = open(pathtowork + "/" + args.jobName + "_blast_out.txt")
 
-        # fl = sum(1 for line in open(pathtowork+"/"+args.processName+'_blast_out.txt'))
+        # fl = sum(1 for line in open(pathtowork+"/"+args.jobName+'_blast_out.txt'))
         dico_size_contig = {}
 
         for r in SeqIO.parse(pathtowork + "/" + link_file, "fasta"):
@@ -1391,7 +1388,7 @@ def main():
                     )
                 else:
                     dico_direction[contig] = direction
-                if contig in dico_score):
+                if contig in dico_score:
                     if score > dico_score.get(contig):
                         dico_score[contig] = score
                 else:
@@ -1417,10 +1414,8 @@ def main():
                 )
                 exit(1)
         elif len(collections.OrderedDict(sorted_y)) == 1:
-            logging.info(
-                "MitoFinder found a single mitochondrial contig\n"
-                + "Checking resulting contig for circularization...\n"
-            )
+            logging.info("MitoFinder found a single mitochondrial contig.")
+            logging.info("Checking resulting contig for circularization...")
         elif len(collections.OrderedDict(sorted_y)) > 1:
             logging.info(
                 "MitoFinder found "
@@ -1477,38 +1472,66 @@ def main():
                 dico_final_direction[key] = values
 
         if fl == 1:
-            fout = open(pathtowork + "/" + args.processName + "_contig.fasta", "w")
+            fout = open(pathtowork + "/" + args.jobName + "_contig.fasta", "w")
             for r in SeqIO.parse(pathtowork + "/" + link_file, "fasta"):
                 if r.id in ID_dico:
                     SeqIO.write(r, fout, "fasta")
             fout.close()
 
             # Resultfile
-            pathOfResult = pathtowork + "/" + args.processName + "_contig.fasta"
+            pathOfResult = pathtowork + "/" + args.jobName + "_contig.fasta"
 
             # Call module as script
             command = ["python", "-m", "mitofinder.circularizationCheck"]
             # [resultFile, circularSize, circularOffSet]
-            circ_args = [pathOfResult, str(args.circularSize), str(args.circularOffSet)]
+            circ_args = [
+                pathOfResult,
+                str(args.circularSize),
+                str(args.circularOffSet),
+                pathtowork,
+            ]
 
-            # subprocess.run(["python", "-m", "mitofinder.circularizationCheck"] + arguments)
-            result = subprocess.run(
-                command + circ_args,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                shell=True,
+            # ["python", "-m", "mitofinder.circularizationCheck"] + arguments
+            logging.info("Call circularizationCheck module.")
+            logging.info(" ".join(command + circ_args))
+
+            # Run the command
+            circ_process = Popen(
+                " ".join(command + circ_args), stdout=PIPE, stderr=PIPE, shell=True
             )
-            process_output = result.stdout.decode("utf-8") if result.stdout else None
+
+            # Unpack the output from the process
+            stdout, stderr = circ_process.communicate()
+            stdout_str = stdout.decode("utf-8") if stdout else None
+            stderr_str = stderr.decode("utf-8") if stderr else None
+
+            print(stderr_str)
+
+            # Access the return code
+            return_code = circ_process.returncode
+
+            # Handle the output or return code as needed
+            if return_code == 0:
+                logging.info(
+                    "Call to mitofinder.circularizationCheck executed successfully."
+                )
+            else:
+                print(
+                    f"Command failed with return code {return_code}. Output:\n{stdout_str}\nError:\n{stderr_str}"
+                )
+
             fourthStep = (
-                process_output.rstrip()
+                stdout_str.rstrip()
                 .replace(" ", "")
                 .replace("(", "")
                 .replace(")", "")
                 .split(",")
             )
-            # circularizationcheck will return a tuple with (True, start, end)
 
-            resultFile = args.processName + ".fasta"
+            # circularizationcheck will return a tuple with (True, start, end)
+            logging.info("Circularization check complete.")
+
+            resultFile = args.jobName + ".fasta"
 
             if fourthStep[0] == "True":
                 logging.info(
@@ -1518,7 +1541,7 @@ def main():
                 with open(
                     resultFile, "w"
                 ) as outputResult:  # create draft file to be checked and annotated
-                    finalResults = SeqIO.read(open(pathOfResult, "rU"), "fasta")
+                    finalResults = SeqIO.read(open(pathOfResult, "r"), "fasta")
                     finalResults.seq = finalResults.seq[int(fourthStep[2]) :].upper()
                     count = SeqIO.write(
                         finalResults, outputResult, "fasta"
@@ -1530,7 +1553,7 @@ def main():
                 with open(
                     resultFile, "w"
                 ) as outputResult:  # create draft file to be checked and annotated
-                    finalResults = SeqIO.read(open(pathOfResult, "rU"), "fasta")
+                    finalResults = SeqIO.read(open(pathOfResult, "r"), "fasta")
                     finalResults.seq = finalResults.seq.upper()
                     count = SeqIO.write(
                         finalResults, outputResult, "fasta"
@@ -1539,7 +1562,7 @@ def main():
             pathOfFinalResults = (
                 pathtowork
                 + "/"
-                + args.processName
+                + args.jobName
                 + "_MitoFinder"
                 + assembler
                 + "_"
@@ -1552,8 +1575,8 @@ def main():
             # creating some stat file:
             logging.info("Creating summary statistics for the mtDNA contig")
 
-            finalResults = SeqIO.read(open(resultFile, "rU"), "fasta")
-            finalStatsFile = open(pathOfFinalResults + args.processName + ".infos", "w")
+            finalResults = SeqIO.read(open(resultFile, "r"), "fasta")
+            finalStatsFile = open(pathOfFinalResults + args.jobName + ".infos", "w")
 
             finalStatsFile.write(
                 "Initial contig name: " + str(finalResults.id) + "\n\n"
@@ -1563,7 +1586,7 @@ def main():
             finalStatsFile.write("Length: " + str(len(finalResults.seq)) + "\n")
             finalStatsFile.write(
                 "GC content: "
-                + ("{0:.2f}".format(SeqUtils.GC(finalResults.seq)))
+                + ("{0:.2f}".format(SeqUtils.gc_fraction(finalResults.seq)))
                 + "%\n"
             )
             if fourthStep[0] == "True":
@@ -1576,25 +1599,25 @@ def main():
                 command = ["python", "-m", "mitofinder.rename_fasta_seqID"]
 
                 rename_fasta_args = [
-                    args.processName,
-                    resultFile,
+                    args.jobName,
+                    os.path.abspath(resultFile),
                     os.path.join(
-                        pathOfFinalResults, args.processName + "_mtDNA_contig.fasta"
+                        pathOfFinalResults, args.jobName + "_mtDNA_contig.fasta"
                     ),
                     str(1),
-                    dico_final_direction.get(finalResults.id) + str(args.rename),
+                    dico_final_direction.get(finalResults.id),
+                    str(args.rename),
                 ]
 
             else:
                 command = ["python", "-m", "mitofinder.rename_fasta_seqID"]
                 rename_fasta_args = (
-                    +args.processName
+                    args.jobName
                     + " "
-                    + resultFile
+                    + os.path.abspath(resultFile)
                     + " "
                     + pathOfFinalResults
-                    + "/"
-                    + args.processName
+                    + args.jobName
                     + "_mtDNA_contig.fasta"
                     + " "
                     + str(1)
@@ -1603,8 +1626,33 @@ def main():
                 )
                 rename_fasta_args = shlex.split(rename_fasta_args)
 
-            rename = Popen(command + rename_fasta_args, stdout=open(os.devnull, "wb"))
-            rename.wait()
+            rfs_cmd = " ".join(command + rename_fasta_args)
+
+            logging.info(f"Calling: {rfs_cmd}")
+
+            rfs_process = Popen(rfs_cmd, stdout=PIPE, stderr=PIPE, shell=True)
+
+            # Unpack the output from the process
+            stdout, stderr = rfs_process.communicate()
+            stdout_str = stdout.decode("utf-8") if stdout else None
+            stderr_str = stderr.decode("utf-8") if stderr else None
+
+            print(stderr_str)
+
+            # Access the return code
+            return_code = rfs_process.returncode
+
+            # Handle the output or return code as needed
+            if return_code == 0:
+                logging.info(
+                    "Call to mitofinder.rename_fasta_seqID executed successfully."
+                )
+            else:
+                print(
+                    f"Command failed with return code {return_code}. Output:\n{stdout_str}\nError:\n{stderr_str}"
+                )
+
+            # Remove copy of the genome in the job dir for some reason?
             os.remove(resultFile)
 
             # Annotating with gene_checker
@@ -1638,7 +1686,7 @@ def main():
                                 + " -query "
                                 + pathOfFinalResults
                                 + "/"
-                                + args.processName
+                                + args.jobName
                                 + "_mtDNA_contig.fasta"
                                 + " -evalue "
                                 + str(blasteVal)
@@ -1673,7 +1721,7 @@ def main():
                                 + " -query "
                                 + pathOfFinalResults
                                 + "/"
-                                + args.processName
+                                + args.jobName
                                 + "_mtDNA_contig.fasta"
                                 + " -evalue "
                                 + str(blasteVal)
@@ -1718,10 +1766,10 @@ def main():
                         + " "
                         + pathOfFinalResults
                         + "/"
-                        + args.processName
+                        + args.jobName
                         + "_mtDNA_contig.fasta"
                         + " "
-                        + args.processName
+                        + args.jobName
                         + "_mtDNA_contig.gb"
                         + " "
                         + str(args.organismType)
@@ -1765,10 +1813,10 @@ def main():
                         + " "
                         + pathOfFinalResults
                         + "/"
-                        + args.processName
+                        + args.jobName
                         + "_mtDNA_contig.fasta"
                         + " "
-                        + args.processName
+                        + args.jobName
                         + "_mtDNA_contig.gb"
                         + " "
                         + str(args.organismType)
@@ -1817,10 +1865,10 @@ def main():
                         + " "
                         + pathOfFinalResults
                         + "/"
-                        + args.processName
+                        + args.jobName
                         + "_mtDNA_contig.fasta"
                         + " "
-                        + args.processName
+                        + args.jobName
                         + "_mtDNA_contig.gb"
                         + " "
                         + str(args.organismType)
@@ -1864,10 +1912,10 @@ def main():
                         + " "
                         + pathOfFinalResults
                         + "/"
-                        + args.processName
+                        + args.jobName
                         + "_mtDNA_contig.fasta"
                         + " "
-                        + args.processName
+                        + args.jobName
                         + "_mtDNA_contig.gb"
                         + " "
                         + str(args.organismType)
@@ -1899,7 +1947,7 @@ def main():
             # Check if correct output was created
             if tRNA == "arwen":
                 test_arwen = (
-                    pathOfFinalResults + "/" + args.processName + "_mtDNA_contig.arwen"
+                    pathOfFinalResults + "/" + args.jobName + "_mtDNA_contig.arwen"
                 )
                 if os.path.isfile(test_arwen) == True:
                     logging.info("tRNA annotation with Arwen run well.\n")
@@ -1912,10 +1960,7 @@ def main():
                     exit(1)
             elif tRNA == "trnascan":
                 test_trnascan = (
-                    pathOfFinalResults
-                    + "/"
-                    + args.processName
-                    + "_mtDNA_contig.trnascan"
+                    pathOfFinalResults + "/" + args.jobName + "_mtDNA_contig.trnascan"
                 )
                 if os.path.isfile(test_trnascan) == True:
                     logging.info("tRNA annotation with tRNAscan-SE run well.\n")
@@ -1927,9 +1972,10 @@ def main():
                     )
                     exit(1)
             elif tRNA == "mitfi":
-                if check_if_string_in_file(
-                    pathtowork + "/geneChecker.log", "MiTFi failed."
-                ) or (
+                mitfi_fail_check = check_if_string_in_file(
+                    (pathtowork + "/geneChecker.log"), "MiTFi failed."
+                )
+                if mitfi_fail_check or (
                     os.stat(pathOfFinalResults + "MiTFi.log").st_size != 0
                     and not check_if_string_in_file(
                         pathOfFinalResults + "MiTFi.log", "hits"
@@ -1948,9 +1994,7 @@ def main():
                 else:
                     logging.info("tRNA annotation with MitFi ran well.\n")
 
-            test_gene_checker = (
-                pathOfFinalResults + args.processName + "_mtDNA_contig.gb"
-            )
+            test_gene_checker = pathOfFinalResults + args.jobName + "_mtDNA_contig.gb"
             if os.path.isfile(test_gene_checker) == True:
                 logging.info("Annotation completed\n")
             else:
@@ -1974,14 +2018,14 @@ def main():
                     fout = open(
                         pathtowork
                         + "/"
-                        + args.processName
+                        + args.jobName
                         + "_contig_"
                         + str(ID_dico.get(r.id))
                         + ".fasta",
                         "w",
                     )
                     contg_list.write(
-                        args.processName
+                        args.jobName
                         + "_contig_"
                         + str(ID_dico.get(r.id))
                         + ".fasta"
@@ -1994,15 +2038,15 @@ def main():
             c = 1
             for line in open(pathtowork + "/" + "contig_list.txt", "r"):
                 pathOfResult = (
-                    pathtowork + "/" + args.processName + "_contig_" + str(c) + ".fasta"
+                    pathtowork + "/" + args.jobName + "_contig_" + str(c) + ".fasta"
                 )
 
-                resultFile = args.processName + "_mtDNA_contig_" + str(c) + ".fasta"
+                resultFile = args.jobName + "_mtDNA_contig_" + str(c) + ".fasta"
 
                 with open(
                     resultFile, "w"
                 ) as outputResult:  # create draft file to be checked and annotated
-                    finalResults = SeqIO.read(open(pathOfResult, "rU"), "fasta")
+                    finalResults = SeqIO.read(open(pathOfResult, "r"), "fasta")
                     finalResults.seq = finalResults.seq.upper()
                     count = SeqIO.write(
                         finalResults, outputResult, "fasta"
@@ -2011,7 +2055,7 @@ def main():
                 pathOfFinalResults = (
                     pathtowork
                     + "/"
-                    + args.processName
+                    + args.jobName
                     + "_MitoFinder"
                     + assembler
                     + "_"
@@ -2024,10 +2068,10 @@ def main():
                 # creating some stat file:
                 logging.info("Creating summary statistics for mtDNA contig " + str(c))
 
-                finalResults = SeqIO.read(open(resultFile, "rU"), "fasta")
+                finalResults = SeqIO.read(open(resultFile, "r"), "fasta")
                 finalStatsFile = open(
                     pathOfFinalResults
-                    + args.processName
+                    + args.jobName
                     + "_mtDNA_contig_"
                     + str(c)
                     + ".infos",
@@ -2041,7 +2085,7 @@ def main():
                 finalStatsFile.write("Length: " + str(len(finalResults.seq)) + "\n")
                 finalStatsFile.write(
                     "GC content: "
-                    + ("{0:.2f}".format(SeqUtils.GC(finalResults.seq)))
+                    + ("{0:.2f}".format(SeqUtils.gc_fraction(finalResults.seq)))
                     + "%\n"
                 )
                 finalStatsFile.write("Circularization: NA\n")
@@ -2050,13 +2094,13 @@ def main():
                     command = (
                         "python -m mitofinder.rename_fasta_seqID"
                         + " "
-                        + args.processName
+                        + args.jobName
                         + " "
                         + resultFile
                         + " "
                         + pathOfFinalResults
                         + "/"
-                        + args.processName
+                        + args.jobName
                         + "_mtDNA_contig_"
                         + str(c)
                         + ".fasta"
@@ -2071,13 +2115,13 @@ def main():
                     command = (
                         "python -m mitofinder.rename_fasta_seqID"
                         + " "
-                        + args.processName
+                        + args.jobName
                         + " "
                         + resultFile
                         + " "
                         + pathOfFinalResults
                         + "/"
-                        + args.processName
+                        + args.jobName
                         + "_mtDNA_contig_"
                         + str(c)
                         + ".fasta"
@@ -2091,7 +2135,7 @@ def main():
                 rename.wait()
 
                 os.remove(resultFile)
-                # shutil.copyfile(resultFile, pathOfFinalResults+"/"+args.processName+"_mtDNA_contig_"+str(c)+".fasta")
+                # shutil.copyfile(resultFile, pathOfFinalResults+"/"+args.jobName+"_mtDNA_contig_"+str(c)+".fasta")
 
                 # creating best ref file for annotation
 
@@ -2099,7 +2143,7 @@ def main():
                     "makeblastdb -in "
                     + pathOfFinalResults
                     + "/"
-                    + args.processName
+                    + args.jobName
                     + "_mtDNA_contig_"
                     + str(c)
                     + ".fasta"
@@ -2146,7 +2190,7 @@ def main():
                                     + " -query "
                                     + pathOfFinalResults
                                     + "/"
-                                    + args.processName
+                                    + args.jobName
                                     + "_mtDNA_contig_"
                                     + str(c)
                                     + ".fasta"
@@ -2183,7 +2227,7 @@ def main():
                                     + " -query "
                                     + pathOfFinalResults
                                     + "/"
-                                    + args.processName
+                                    + args.jobName
                                     + "_mtDNA_contig_"
                                     + str(c)
                                     + ".fasta"
@@ -2241,12 +2285,12 @@ def main():
                             + " "
                             + pathOfFinalResults
                             + "/"
-                            + args.processName
+                            + args.jobName
                             + "_mtDNA_contig_"
                             + str(c)
                             + ".fasta"
                             + " "
-                            + args.processName
+                            + args.jobName
                             + "_mtDNA_contig_"
                             + str(c)
                             + ".gb"
@@ -2294,12 +2338,12 @@ def main():
                             + " "
                             + pathOfFinalResults
                             + "/"
-                            + args.processName
+                            + args.jobName
                             + "_mtDNA_contig_"
                             + str(c)
                             + ".fasta"
                             + " "
-                            + args.processName
+                            + args.jobName
                             + "_mtDNA_contig_"
                             + str(c)
                             + ".gb"
@@ -2351,12 +2395,12 @@ def main():
                             + " "
                             + pathOfFinalResults
                             + "/"
-                            + args.processName
+                            + args.jobName
                             + "_mtDNA_contig_"
                             + str(c)
                             + ".fasta"
                             + " "
-                            + args.processName
+                            + args.jobName
                             + "_mtDNA_contig_"
                             + str(c)
                             + ".gb"
@@ -2402,12 +2446,12 @@ def main():
                             + " "
                             + pathOfFinalResults
                             + "/"
-                            + args.processName
+                            + args.jobName
                             + "_mtDNA_contig_"
                             + str(c)
                             + ".fasta"
                             + " "
-                            + args.processName
+                            + args.jobName
                             + "_mtDNA_contig_"
                             + str(c)
                             + ".gb"
@@ -2443,7 +2487,7 @@ def main():
                     test_arwen = (
                         pathOfFinalResults
                         + "/"
-                        + args.processName
+                        + args.jobName
                         + "_mtDNA_contig_"
                         + str(c)
                         + ".arwen"
@@ -2461,7 +2505,7 @@ def main():
                     test_trnascan = (
                         pathOfFinalResults
                         + "/"
-                        + args.processName
+                        + args.jobName
                         + "_mtDNA_contig_"
                         + str(c)
                         + ".trnascan"
@@ -2476,14 +2520,6 @@ def main():
                         )
                         exit(1)
                 elif tRNA == "mitfi":
-
-                    def check_if_string_in_file(f, string):
-                        with open(f, "r") as read_obj:
-                            for line in read_obj:
-                                if string in line:
-                                    return True
-                        return False
-
                     if check_if_string_in_file(
                         pathtowork + "/geneChecker.log", "MiTFi failed."
                     ) or (
@@ -2506,7 +2542,7 @@ def main():
                         logging.info("tRNA annotation with MitFi run well.\n")
                 test_gene_checker = (
                     pathOfFinalResults
-                    + args.processName
+                    + args.jobName
                     + "_mtDNA_contig_"
                     + str(c)
                     + ".gb"
@@ -2572,12 +2608,12 @@ def main():
                     if dgen.get(featureName) == 1:
                         gnb = gnb + 1
                         out_fasta_nt.write(
-                            ">" + args.processName + "@" + featureName + "\n"
+                            ">" + args.jobName + "@" + featureName + "\n"
                         )
                         out_fasta_nt.write(str(feature.extract(record).seq) + "\n")
                         if str(seq_aa) != "":
                             out_fasta_aa.write(
-                                ">" + args.processName + "@" + featureName + "\n"
+                                ">" + args.jobName + "@" + featureName + "\n"
                             )
                             out_fasta_aa.write(str(seq_aa) + "\n")
 
@@ -2614,12 +2650,12 @@ def main():
                             dico_cds_n[featureName] = 1
                             gnb = gnb + 1
                         out_fasta_nt.write(
-                            ">" + args.processName + "@" + featureName + "\n"
+                            ">" + args.jobName + "@" + featureName + "\n"
                         )
                         out_fasta_nt.write(str(feature.extract(record).seq) + "\n")
                         if str(seq_aa) != "":
                             out_fasta_aa.write(
-                                ">" + args.processName + "@" + featureName + "\n"
+                                ">" + args.jobName + "@" + featureName + "\n"
                             )
                             out_fasta_aa.write(str(seq_aa) + "\n")
 
@@ -2629,12 +2665,12 @@ def main():
                         and args.merge == True
                     ):
                         out_fasta_nt.write(
-                            ">" + args.processName + "@" + featureName + "\n"
+                            ">" + args.jobName + "@" + featureName + "\n"
                         )
                         out_fasta_nt.write(str(dico_cds_nt.get(featureName)) + "\n")
                         if str(dico_cds_aa.get(featureName)) != "":
                             out_fasta_aa.write(
-                                ">" + args.processName + "@" + featureName + "\n"
+                                ">" + args.jobName + "@" + featureName + "\n"
                             )
                             out_fasta_aa.write(str(dico_cds_aa.get(featureName)) + "\n")
 
@@ -2644,7 +2680,7 @@ def main():
             logging.info(
                 str(gnb)
                 + " gene was found in "
-                + f.split(".gb")[0].split("Final_Results/" + args.processName + "_")[1]
+                + f.split(".gb")[0].split("Final_Results/" + args.jobName + "_")[1]
             )
             os.remove(f.split(".gb")[0] + "_genes_NT.fasta")
             os.remove(f.split(".gb")[0] + "_genes_AA.fasta")
@@ -2652,13 +2688,13 @@ def main():
             logging.info(
                 str(gnb)
                 + " gene was found in "
-                + f.split(".gb")[0].split("Final_Results/" + args.processName + "_")[1]
+                + f.split(".gb")[0].split("Final_Results/" + args.jobName + "_")[1]
             )
         else:
             logging.info(
                 str(gnb)
                 + " genes were found in "
-                + f.split(".gb")[0].split("Final_Results/" + args.processName + "_")[1]
+                + f.split(".gb")[0].split("Final_Results/" + args.jobName + "_")[1]
             )
 
     # sort gff
@@ -2672,7 +2708,7 @@ def main():
                 + " "
                 + f
                 + " "
-                + args.processName
+                + args.jobName
                 + ".1 "
                 + str(args.organismType)
                 + " "
@@ -2695,7 +2731,7 @@ def main():
                 + " "
                 + f
                 + " "
-                + args.processName
+                + args.jobName
                 + "."
                 + f.split("_raw")[0][-1]
                 + " "
@@ -2723,11 +2759,11 @@ def main():
             f = f.split("_NT.fasta")[0]
             shutil.copy(
                 f + "_AA.fasta",
-                pathOfFinalResults + "/" + args.processName + "_final_genes_AA.fasta",
+                pathOfFinalResults + "/" + args.jobName + "_final_genes_AA.fasta",
             )
             shutil.copy(
                 f + "_NT.fasta",
-                pathOfFinalResults + "/" + args.processName + "_final_genes_NT.fasta",
+                pathOfFinalResults + "/" + args.jobName + "_final_genes_NT.fasta",
             )
     if c > 1 and args.numt == 0:
         for f in sorted(
@@ -2758,11 +2794,11 @@ def main():
                 double_gene += 1
 
         final_fasta = open(
-            pathOfFinalResults + "/" + args.processName + "_final_genes_NT.fasta", "w"
+            pathOfFinalResults + "/" + args.jobName + "_final_genes_NT.fasta", "w"
         )
 
         for key, value in dico_genes.items():
-            final_fasta.write(">" + args.processName + "@" + key + "\n" + value + "\n")
+            final_fasta.write(">" + args.jobName + "@" + key + "\n" + value + "\n")
         final_fasta.close()
 
         dico_genes = {}
@@ -2778,11 +2814,11 @@ def main():
                     dico_genes[gene] = seq
 
         final_fasta = open(
-            pathOfFinalResults + "/" + args.processName + "_final_genes_AA.fasta", "w"
+            pathOfFinalResults + "/" + args.jobName + "_final_genes_AA.fasta", "w"
         )
 
         for key, value in dico_genes.items():
-            final_fasta.write(">" + args.processName + "@" + key + "\n" + value + "\n")
+            final_fasta.write(">" + args.jobName + "@" + key + "\n" + value + "\n")
         final_fasta.close()
 
     logging.info("## Final sequence saved to " + pathOfFinalResults)
@@ -2792,10 +2828,10 @@ def main():
             "\n/!\\ WARNING /!\\ "
             + str(double_gene)
             + ' gene was found more than once suggesting either fragmentation, NUMT annotations, or potential contamination of your sequencing data.\nDifferent contigs may be part of different organisms thus "'
-            + args.processName
+            + args.jobName
             + '_final_genes_NT.fasta"'
             + ' and "'
-            + args.processName
+            + args.jobName
             + '_final_genes_AA.fasta" could be erroneous.\nWe recommend to check contigs and associated genes separately.\n'
         )
     elif double_gene > 1:
@@ -2803,10 +2839,10 @@ def main():
             "\n/!\\ WARNING /!\\ "
             + str(double_gene)
             + ' genes were found more than once suggesting either fragmentation, NUMT annotations, or potential contamination of your sequencing data.\nDifferent contigs may be part of different organisms thus "'
-            + args.processName
+            + args.jobName
             + '_final_genes_NT.fasta"'
             + ' and "'
-            + args.processName
+            + args.jobName
             + '_final_genes_AA.fasta" could be erroneous.\nWe recommend to check contigs and associated genes separately.\n'
         )
 
@@ -2822,11 +2858,11 @@ def main():
 
     # Cleaning
 
-    trna_folder = pathtowork + "/" + args.processName + "_" + tRNA
-    if os.path.exists(pathtowork + "/" + args.processName + "_" + tRNA):
-        shutil.rmtree(pathtowork + "/" + args.processName + "_" + tRNA)
-    if not os.path.exists(pathtowork + "/" + args.processName + "_" + tRNA):
-        os.makedirs(pathtowork + "/" + args.processName + "_" + tRNA)
+    trna_folder = pathtowork + "/" + args.jobName + "_" + tRNA
+    if os.path.exists(pathtowork + "/" + args.jobName + "_" + tRNA):
+        shutil.rmtree(pathtowork + "/" + args.jobName + "_" + tRNA)
+    if not os.path.exists(pathtowork + "/" + args.jobName + "_" + tRNA):
+        os.makedirs(pathtowork + "/" + args.jobName + "_" + tRNA)
     if tRNA == "arwen":
         for f in glob.glob(pathOfFinalResults + "*.arwen"):
             shutil.copy(f, trna_folder + "/")
@@ -2846,7 +2882,7 @@ def main():
         shutil.copy(pathOfFinalResults + "MiTFi.log", trna_folder + "/")
         os.remove(pathOfFinalResults + "MiTFi.log")
 
-    tmpfiles = pathtowork + "/" + args.processName + "_tmp"
+    tmpfiles = pathtowork + "/" + args.jobName + "_tmp"
     if os.path.exists(tmpfiles):
         shutil.rmtree(tmpfiles)
     if not os.path.exists(tmpfiles):
@@ -2886,19 +2922,19 @@ def main():
     for f in glob.glob(pathtowork + "/*.scafSeq.n*"):
         shutil.copy(f, tmpfiles + "/")
         os.remove(f)
-    for f in glob.glob(tmpfiles + "/" + args.processName + "*.fasta"):
+    for f in glob.glob(tmpfiles + "/" + args.jobName + "*.fasta"):
         os.remove(f)
     os.remove("genes_list")
     if args.genbk == False:
-        for f in glob.glob(pathOfFinalResults + args.processName + "*.gb"):
+        for f in glob.glob(pathOfFinalResults + args.jobName + "*.gb"):
             os.remove(f)
-    for f in glob.glob(pathOfFinalResults + args.processName + "*.xml"):
+    for f in glob.glob(pathOfFinalResults + args.jobName + "*.xml"):
         shutil.copy(f, tmpfiles + "/")
         os.remove(f)
-    for f in glob.glob(pathOfFinalResults + args.processName + "*ref.fasta"):
+    for f in glob.glob(pathOfFinalResults + args.jobName + "*ref.fasta"):
         shutil.copy(f, tmpfiles + "/")
         os.remove(f)
-    for f in glob.glob(pathOfFinalResults + args.processName + "*ref.cds.fasta"):
+    for f in glob.glob(pathOfFinalResults + args.jobName + "*ref.cds.fasta"):
         shutil.copy(f, tmpfiles + "/")
         os.remove(f)
 
