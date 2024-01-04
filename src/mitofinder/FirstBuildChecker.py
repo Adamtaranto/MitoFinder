@@ -273,7 +273,7 @@ def checkSoapOutput(
     minSizeToLook = cutoffValue[0]
     maxSizeToLook = cutoffValue[1]
 
-    for record in SeqIO.parse(open(scafFile, "rU"), "fasta"):
+    for record in SeqIO.parse(open(scafFile, "r"), "fasta"):
         if len(record.seq) >= minSizeToLook and len(record.seq) <= maxSizeToLook:
             # Add this record to our list
             possible_sequences.append(record)
@@ -362,7 +362,7 @@ def checkSoapOutput(
 		target size. Otherwise, just grab best hit and procceed.
 		"""
         for record in SeqIO.parse(
-            open("possible_hits.fasta", "rU"), "fasta"
+            open("possible_hits.fasta", "r"), "fasta"
         ):  # check all possible hits
             if record.id == qresult.id:  # found the best match
                 output_handle = open("best_query.fasta", "w")
@@ -488,7 +488,7 @@ def checkSoapOutput(
                             dictOfStarts[listOfValidResults[n]].id,
                         )
                         for record2 in SeqIO.parse(
-                            open("possible_hits.fasta", "rU"), "fasta"
+                            open("possible_hits.fasta", "r"), "fasta"
                         ):
                             startVal = listOfValidResults[n]
                             blastResult = dictOfStarts[startVal]
@@ -545,7 +545,7 @@ def checkSoapOutput(
                 """
 				#create a fasta file with everything but the best hit, needed later if edges are missing
 				sequencesExceptBest = []
-				for sequenceFound in SeqIO.parse(open(scafFile, "rU"), "fasta"):
+				for sequenceFound in SeqIO.parse(open(scafFile, "r"), "fasta"):
 					if sequenceFound.id != qresult.id:
 						sequencesExceptBest.append(sequenceFound)
 				outputSeqs = open("all_hits_except_best.fasta", "w")

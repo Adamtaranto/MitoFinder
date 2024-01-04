@@ -19,7 +19,7 @@ def genbankOutput(
     """
     # creating the genbank file, not annotated, to be opened afterwards and have the features inserted
     with open(resultGbFile, "w") as outputResult:
-        finalResults = SeqIO.read(open(resultFile, "rU"), "fasta")
+        finalResults = SeqIO.read(open(resultFile, "r"), "fasta")
         finalResults.seq = finalResults.seq.upper()
         finalResults.name = finalResults.name[0:10] + "_draft"
         finalResults.id = finalResults.name[0:10] + "_draft"
@@ -45,7 +45,7 @@ def genbankOutput(
 
     dico_gene = {}
     with open(
-        resultGbFile, "rU"
+        resultGbFile, "r"
     ) as outputResult:  # opening the output file, this time to insert the features
         finalResults = SeqIO.read(outputResult, "genbank")
         # lastFeatureAlignment = None

@@ -1055,7 +1055,7 @@ if __name__ == "__main__":
 
         outputFile = outputFile.split(".gb")[0] + "_raw.gff"
         outputFile = open(outputFile, "w")
-        seq = SeqIO.read(open(resultFile, "rU"), "fasta")
+        seq = SeqIO.read(open(resultFile, "r"), "fasta")
         seq_name = finalResults.description
         genes = dict()
         for gbkFeature in finalResults.features:
@@ -1094,7 +1094,7 @@ if __name__ == "__main__":
 """			
 		outputFile=outputFile.split(".gb")[0]+'.gff'
 		outputFile=open(outputFile,"w")
-		seq_name = SeqIO.read(open(resultFile, 'rU'), "fasta")
+		seq_name = SeqIO.read(open(resultFile, 'r'), "fasta")
 		seq_name = seq_name.name
 
 		for thisFeatureAlignment in listOfFeaturesToOutput:

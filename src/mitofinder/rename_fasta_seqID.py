@@ -24,7 +24,7 @@ def main():
     c = sys.argv[4]
     direction = sys.argv[5]
 
-    resultFile = SeqIO.read(open(sys.argv[2], "rU"), "fasta")
+    resultFile = SeqIO.read(open(sys.argv[2], "r"), "fasta")
     if direction == "+":
         if sys.argv[6] == "yes":
             fout.write(">" + seqID + "." + str(c) + "\n" + str(resultFile.seq) + "\n")
