@@ -400,7 +400,7 @@ def setup_logging(log_file, loglevel):
     # Configure the logging module
     logging.basicConfig(
         level=numeric_level,
-        format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
+        format="%(asctime)s:%(levelname)s:%(module)s:%(message)s",
         filename=log_file if log_file else None,
         filemode="w" if log_file else None,
     )
@@ -602,7 +602,7 @@ def main():
                 os.path.join(module_dir, "../../bin/mitfi/")
             )
             add_to_path(pathToMitfiFolder)
-            logging.info("Using bundled mitfi.jar: {pathToMitfiFolder}")
+            logging.info(f"Using bundled mitfi.jar: {pathToMitfiFolder}")
 
     if not args.Assembly:
         # Check if Megahit is on PATH. Default assembler if no asm provided
@@ -1797,6 +1797,7 @@ def main():
                         + tRNA
                     )
                     args1 = shlex.split(command)
+                    logging.info(f"Calling: {" ".join(args1)}")
                     fifthStep = Popen(
                         args1,
                         cwd=pathOfFinalResults,
@@ -1838,6 +1839,7 @@ def main():
                         + tRNA
                     )
                     args1 = shlex.split(command)
+                    logging.info(f"Calling: {" ".join(args1)}")
                     fifthStep = Popen(
                         args1,
                         cwd=pathOfFinalResults,
@@ -1896,6 +1898,7 @@ def main():
                         + tRNA
                     )
                     args1 = shlex.split(command)
+                    logging.info(f"Calling: {" ".join(args1)}")
                     fifthStep = Popen(
                         args1,
                         cwd=pathOfFinalResults,
@@ -1937,6 +1940,7 @@ def main():
                         + tRNA
                     )
                     args1 = shlex.split(command)
+                    logging.info(f"Calling: {" ".join(args1)}")
                     fifthStep = Popen(
                         args1,
                         cwd=pathOfFinalResults,
@@ -2131,6 +2135,7 @@ def main():
                         + str(args.rename)
                     )
                 args1 = shlex.split(command)
+                logging.info(f"Calling: {" ".join(args1)}")
                 rename = Popen(args1, stdout=open(os.devnull, "wb"))
                 rename.wait()
 
@@ -2320,6 +2325,7 @@ def main():
                             + tRNA
                         )
                         args1 = shlex.split(command)
+                        logging.info(f"Calling: {" ".join(args1)}")
                         fifthStep = Popen(
                             args1,
                             cwd=pathOfFinalResults,
@@ -2367,6 +2373,7 @@ def main():
                             + tRNA
                         )
                         args1 = shlex.split(command)
+                        logging.info(f"Calling: {" ".join(args1)}")
                         fifthStep = Popen(
                             args1,
                             cwd=pathOfFinalResults,
@@ -2430,6 +2437,7 @@ def main():
                             + tRNA
                         )
                         args1 = shlex.split(command)
+                        logging.info(f"Calling: {" ".join(args1)}")
                         fifthStep = Popen(
                             args1,
                             cwd=pathOfFinalResults,
@@ -2475,6 +2483,7 @@ def main():
                             + tRNA
                         )
                         args1 = shlex.split(command)
+                        logging.info(f"Calling: {" ".join(args1)}")
                         fifthStep = Popen(
                             args1,
                             cwd=pathOfFinalResults,
@@ -2715,6 +2724,7 @@ def main():
                 + str(args.rename)
             )
             args1 = shlex.split(command)
+            logging.info(f"Calling: {" ".join(args1)}")
             sort_gff = Popen(
                 args1,
                 cwd=pathOfFinalResults,
@@ -2740,6 +2750,7 @@ def main():
                 + str(args.rename)
             )
             args1 = shlex.split(command)
+            logging.info(f"Calling: {" ".join(args1)}")
             sort_gff = Popen(
                 args1,
                 cwd=pathOfFinalResults,
