@@ -6,6 +6,7 @@ from mitofinder.utils import (
     check_files,
     get_abs_if_found,
     setup_directory,
+    check_if_string_in_file,
 )
 from mitofinder import (
     circularizationCheck,
@@ -26,6 +27,7 @@ from subprocess import Popen
 import argparse, os, shlex, shutil, sys
 import collections
 import glob
+import logging
 import operator
 import os.path
 import subprocess
@@ -373,13 +375,48 @@ def mainArgs():
         dest="citation",
         action="store_true",
     )
-
+    parser.add_argument(
+        "--loglevel",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Set logging level.",
+    )
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Specify the log file name (default: None, logging messages will print to consol.)",
+    )
     args = parser.parse_args()
     return args
 
 
+def setup_logging(log_file, loglevel):
+    # Convert text log level to numeric
+    numeric_level = getattr(logging, loglevel.upper(), None)
+
+    # Check that log level is a vaild int
+    if not isinstance(numeric_level, int):
+        raise ValueError("Invalid log level: %s" % loglevel)
+
+    # Configure the logging module
+    logging.basicConfig(
+        level=numeric_level,
+        format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
+        filename=log_file if log_file else None,
+        filemode="w" if log_file else None,
+    )
+
+
 def main():
     args = mainArgs()
+
+    # Set up logging
+    setup_logging(args.log_file, args.loglevel)
+
+    # Log settings
+    logging.info("Command: %s" % " ".join(sys.argv))
+    logging.info("\nJob name: " + args.processName)
+    logging.info(f"You have selected translation table: {code_dict[args.organismType]}")
 
     module_dir = os.path.dirname(__file__)
     module_dir = os.path.abspath(module_dir)
@@ -389,7 +426,7 @@ def main():
 
     # Print example mitofinder cmd and exit
     if args.example == True:
-        print(
+        logging.info(
             """
         # For trimmed paired-end reads:
         mitofinder --megahit -j [seqid] \\\n\t-1 [left_reads.fastq.gz] \\\n\t-2 [right_reads.fastq.gz] \\\n\t-r [genbank_reference.gb] \\\n\t-o [genetic_code] \\\n\t-p [threads] \\\n\t-m [memory]\n\n 
@@ -416,50 +453,21 @@ def main():
         """
         # Replace long dash with dash
         cite_txt = cite_txt.replace("\u2013", "-")
-        print(cite_txt)
+        logging.info(cite_txt)
         exit(0)
-
-    # Print the selected organism type
-    print(f"You have selected translation table: {code_dict[args.organismType]}")
-
-    # Create logfile
-    Logfile = args.processName + "_MitoFinder.log"
-    Logfile = os.path.join(initial_path, Logfile)
-    logfile = open(Logfile, "w")
-    logfile.write("Command line: %s" % " ".join(sys.argv) + "\n")
-    logfile.write(
-        "\nStart time : " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n"
-    )
-    logfile.write("\nJob name = " + args.processName + "\n")
-
-    start_time = datetime.now()
-    print("")
-    print("Command line: %s" % " ".join(sys.argv))
-    print("")
-    print("Now running MitoFinder ...\n")
-    print("Start time : " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n")
-
-    # Print Job ID
-    print("Job ID = " + args.processName)
 
     # Check java is available if using mitfi
     if args.tRNAannotation == "mitfi":
         if not is_java_installed():
-            print(
-                "\nERROR: java is not installed/loaded.\nPlease install/load java to run MitoFinder with MiTFi."
-            )
-            logfile.write(
+            logging.error(
                 "\nERROR: java is not installed/loaded.\nPlease install/load java to run MitoFinder with MiTFi."
             )
             exit(1)
 
     # Check for either short reads OR a mito assembly.
     if args.PE1 == "" and args.PE2 == "" and args.SE == "" and args.Assembly == "":
-        print(
+        logging.error(
             "\nERROR: Read or assembly files are not specified.\n Please, use -1 -2 -s or -a option to specify input data."
-        )
-        logfile.write(
-            "\nERROR: Read or assembly files are not specified.\n Please, use -1 -2 -s or -a option to specify input data.\n"
         )
         exit(1)
 
@@ -468,7 +476,7 @@ def main():
         dup_items = find_duplicates([args.PE1, args.PE2, args.SE])
 
         if dup_items:
-            print(
+            logging.warning(
                 "Warning: Some short read file names occur more than once!", dup_items
             )
             exit(1)
@@ -478,12 +486,12 @@ def main():
 
     # Check reference annotation file exists
     if args.refSeqFile:
-        print(f"Checking for reference annotation: {args.refSeqFile}")
+        logging.info(f"Checking for reference annotation: {args.refSeqFile}")
         args.refSeqFile = get_abs_if_found(args.refSeqFile)
 
     # Check assembly file exists
     if args.Assembly:
-        print(f"Checking for assembly: {args.Assembly}")
+        logging.info(f"Checking for assembly: {args.Assembly}")
         args.Assembly = get_abs_if_found(args.Assembly)
 
         # If Asm provided but reads or assembler opts also set,
@@ -496,7 +504,7 @@ def main():
             or args.PE2
             or args.SE
         ) and args.Assembly:
-            print("Skipping de novo assembly and using existing assembly.")
+            logging.info("Skipping de novo assembly and using existing assembly.")
 
         # Set de novo assembly options to false if user provided asm found.
         args.megahit = False
@@ -519,11 +527,8 @@ def main():
         if args.PE2:
             T = "PE"
         else:
-            print(
+            logging.error(
                 "\nERROR: Only a file with forward paired-end reads was specified.\nPlease specify the file with reverse paired-end reads with -2 option.\nIf you want to use single-end reads, please, use -s option."
-            )
-            logfile.write(
-                "\nERROR: Only a file with forward paired-end reads was specified.\nPlease specify the file with reverse paired-end reads with -2 option.\nIf you want to use single-end reads, please, use -s option.\n"
             )
             exit(1)
 
@@ -531,11 +536,8 @@ def main():
         if args.PE1:
             T = "PE"
         else:
-            print(
+            logging.error(
                 "\nERROR: Only a file with reverse paired-end reads was specified.\nPlease specify the file with forward paired-end reads with -1 option.\nIf you want to use single reads, please, use -s option."
-            )
-            logfile.write(
-                "\nERROR: Only a file with reverse paired-end reads was specified.\nPlease specify the file with forward paired-end reads with -1 option.\nIf you want to use single reads, please, use -s option.\n"
             )
             exit(1)
 
@@ -550,11 +552,8 @@ def main():
         T = "SE"
         # Metaspades requires PE reads
         if args.metaspades == True:
-            print(
+            logging.error(
                 "\nERROR: MetaSPAdes cannot be used for assembly from single-end reads. \nUse Megahit or IDBA-UD.\n"
-            )
-            logfile.write(
-                "\nERROR: MetaSPAdes cannot for assembly from single-end reads. \nUse Megahit or IDBA-UD.\n"
             )
             exit(1)
 
@@ -581,14 +580,8 @@ def main():
 
     # Create output directory
     pathtowork = os.path.join(os.getcwd(), args.processName)
-    print("Creating Output directory : " + pathtowork)
+    logging.info("Creating Output directory : " + pathtowork)
     setup_directory(pathtowork)
-
-    logfile.write(
-        "\nCreating Output directory : "
-        + pathtowork
-        + "\nAll results will be written here\n"
-    )
 
     # Check for selected tRNA annotation tool
     # Use version of mifi or arwen that are bundled with MitoFinder if they are requested but not found on PATH
@@ -602,13 +595,13 @@ def main():
             pathToArwenFolder = os.path.abspath(
                 os.path.join(module_dir, "../../bin/arwen/")
             )
-            print("Using bundled arwen: {pathToArwenFolder}")
+            logging.info("Using bundled arwen: {pathToArwenFolder}")
     elif args.tRNAannotation == "mitfi":
         if not is_avail(["mitfi.jar"], kill=False):
             pathToMitfiFolder = os.path.abspath(
                 os.path.join(module_dir, "../../bin/mitfi/")
             )
-            print("Using bundled mitfi.jar: {pathToMitfiFolder}")
+            logging.info("Using bundled mitfi.jar: {pathToMitfiFolder}")
 
     if not args.Assembly:
         # Check if Megahit is on PATH. Default assembler if no asm provided
@@ -629,15 +622,14 @@ def main():
     # read the refseq and makeblastdb
     if args.refSeqFile != None:
         if args.refSeqFile[-8:] != ".genbank" and args.refSeqFile[-3:] != ".gb":
-            print("Reference mitochondrial genome is not in the expected format")
-            print("Provide a file in GenBank format (.gb)")
-            print("Aborting")
-            logfile.write(
-                "Reference mitochondrial genome is not in the expected format\n"
-                + "Provide a file in GenBank format (.gb)\n"
-                + "Aborting\n"
+            logging.error(
+                """
+                Reference mitochondrial genome is not in the expected format.
+                Provide a file in GenBank format (.gb).
+                Aborting.
+                """
             )
-            exit()
+            exit(1)
 
         else:
             gbk_filename = args.refSeqFile
@@ -680,14 +672,7 @@ def main():
                                 and not "G" in feature.extract(record).seq.upper()
                                 and not "T" in feature.extract(record).seq.upper()
                             ):
-                                print(
-                                    "WARNING: no nucleotide sequence have been found for the gene "
-                                    + str(featureName)
-                                    + " for the reference "
-                                    + str(record.id)
-                                    + "."
-                                )
-                                logfile.write(
+                                logging.warning(
                                     "WARNING: no nucleotide sequence have been found for the gene "
                                     + str(featureName)
                                     + " for the reference "
@@ -719,14 +704,9 @@ def main():
                                     )
                                     + "\n"
                                 )
-                                print(
+                                logging.warning(
                                     "		WARNING: Reference did not specify a CDS translation for %s. MitoFinder is creating its own from refSeq"
                                     % featureName
-                                )
-                                logfile.write(
-                                    "		WARNING: Reference did not specify a CDS translation for %s. MitoFinder is creating its from refSeq"
-                                    % featureName
-                                    + "\n"
                                 )
 
                         if feature.type.lower() == "rrna":
@@ -739,7 +719,7 @@ def main():
                                     and not "G" in feature.extract(record).seq.upper()
                                     and not "T" in feature.extract(record).seq.upper()
                                 ):
-                                    print(
+                                    logging.warning(
                                         "WARNING: no nucleotides sequence have been found for the gene "
                                         + str(featureName)
                                         + " for the reference "
@@ -766,14 +746,7 @@ def main():
                                     and not "G" in feature.extract(record).seq.upper()
                                     and not "T" in feature.extract(record).seq.upper()
                                 ):
-                                    print(
-                                        "WARNING: no nucleotide sequence have been found for the gene "
-                                        + str(featureName)
-                                        + " for the reference "
-                                        + str(record.id)
-                                        + "."
-                                    )
-                                    logfile.write(
+                                    logging.warning(
                                         "WARNING: no nucleotide sequence have been found for the gene "
                                         + str(featureName)
                                         + " for the reference "
@@ -807,14 +780,7 @@ def main():
                             and not "G" in feature.extract(record).seq.upper()
                             and not "T" in feature.extract(record).seq.upper()
                         ):
-                            print(
-                                "WARNING: no nucleotide sequence have been found for the gene "
-                                + str(featureName)
-                                + " for the reference "
-                                + str(record.id)
-                                + "."
-                            )
-                            logfile.write(
+                            logging.warning(
                                 "WARNING: no nucleotide sequence have been found for the gene "
                                 + str(featureName)
                                 + " for the reference "
@@ -844,14 +810,9 @@ def main():
                                 )
                                 + "\n"
                             )
-                            print(
+                            logging.warning(
                                 "		WARNING: Reference did not specify a CDS translation for %s. MitoFinder is creating its from refSeq"
                                 % featureName
-                            )
-                            logfile.write(
-                                "		WARNING: Reference did not specify a CDS translation for %s. MitoFinder is creating its from refSeq"
-                                % featureName
-                                + "\n"
                             )
 
                     if feature.type.lower() == "rrna":
@@ -864,14 +825,7 @@ def main():
                                 and not "G" in feature.extract(record).seq.upper()
                                 and not "T" in feature.extract(record).seq.upper()
                             ):
-                                print(
-                                    "WARNING: no nucleotide sequence have been found for the gene "
-                                    + str(featureName)
-                                    + " for the reference "
-                                    + str(record.id)
-                                    + "."
-                                )
-                                logfile.write(
+                                logging.warning(
                                     "WARNING: no nucleotide sequence have been found for the gene "
                                     + str(featureName)
                                     + " for the reference "
@@ -897,14 +851,7 @@ def main():
                                 and not "G" in feature.extract(record).seq.upper()
                                 and not "T" in feature.extract(record).seq.upper()
                             ):
-                                print(
-                                    "WARNING: no nucleotide sequence have been found for the gene "
-                                    + str(featureName)
-                                    + " for the reference "
-                                    + str(record.id)
-                                    + "."
-                                )
-                                logfile.write(
+                                logging.warning(
                                     "WARNING: no nucleotide sequence have been found for the gene "
                                     + str(featureName)
                                     + " for the reference "
@@ -926,13 +873,10 @@ def main():
             contigdatabase.close()
 
             if s == 0:
-                print(
+                logging.error(
                     "\nERROR: MitoFinder didn't found any nucleotide sequence in the reference(s) file(s).\nAborting"
                 )
-                logfile.write(
-                    "ERROR: MitoFinder didn't found any nucleotide sequence in the reference(s) file(s).\nAborting"
-                )
-                exit()
+                exit(1)
 
             # create a gene database
             os.chdir(pathtowork)
@@ -1127,36 +1071,14 @@ def main():
                     if args.ignore == False and args.newG == False:
                         dico_unknown[name] = name
                     elif args.newG == True and not dico_genes.has_key(name):
-                        print(
-                            'Gene named "'
-                            + name
-                            + '" in the reference file is not recognized by MitoFinder.'
-                        )
-                        print("MitoFinder will try to annotate it.")
-                        logfile.write(
-                            'Gene named "'
-                            + name
-                            + '" in the reference file is not recognized by MitoFinder.'
-                            + "\n"
-                            + "MitoFinder will try to annotate it."
-                            + "\n\n"
-                        )
+                        logging.warning(f"Gene named {name} in the reference file is not recognized by MitoFinder. MitoFinder will try to annotate it.")
 
                     elif args.newG == True and dico_genes.has_key(name):
                         pass
                     elif args.ignore == True and args.newG == False:
                         if not dico_unknown.has_key(name):
-                            print(
-                                'WARNING: Gene named "'
-                                + name
-                                + '" in the reference file is not recognized by MitoFinder.'
-                            )
-                            print("This gene will not be annotated by MitoFinder")
-                            logfile.write(
-                                'WARNING: Gene named "'
-                                + name
-                                + '" in the reference file is not recognized by MitoFinder.\n'
-                                + "This gene will not be annotated by MitoFinder\n\n"
+                            logging.warning(
+                                f'WARNING: Gene named {name} in the reference file is not recognized by MitoFinder. This gene will not be annotated by MitoFinder."
                             )
                             dico_unknown[name] = name
                         name = "no"
@@ -1218,64 +1140,26 @@ def main():
 
             if len(dico_unknown) > 0 and args.ignore == False and args.newG == False:
                 if len(dico_unknown) == 1:
-                    print(
-                        'ERROR: Gene named "'
-                        + next(iter(dico_unknown))
-                        + '" in the reference file(s) is not recognized by MitoFinder.'
-                    )
-                    print(
-                        "This gene is not a standard mitochondrial gene  (use --ignore or --new-genes options) or please change it to one of the following gene names:"
-                    )
-                    print(
-                        "COX1; COX2; COX3; CYTB; ND1; ND2; ND3; ND4; ND4L; ND5; ND6; ATP8; ATP6; rrnL; rrnS"
-                    )
-                    print(" ")
-                    print(
-                        "If you decide to use the new-genes option, please be aware that the names of the new genes in your reference(s) should be homogenized to be considered as unique by MitoFinder (example : Gene1 is not equal to gene1 or gene-1 , use one unique name for all equivalent genes in the different references) "
-                    )
-                    print(" ")
-                    print("Aborting")
-                    print(" ")
-                    logfile.write(
-                        'ERROR: Gene named "'
-                        + name
-                        + '" in the reference file(s) are not recognized by MitoFinder\n'
-                        + "This gene is not a standard mitochondrial gene (use --ignore or --new-genes options) or please change it to one of the following gene names:\n"
-                        + "COX1; COX2; COX3; CYTB; ND1; ND2; ND3; ND4; ND4L; ND5; ND6; ATP8; ATP6; rrnL; rrnS\n\nIf you decide to use the new-genes option, please be aware that the names of the new genes in your reference(s) should be homogenized to be considered as unique by MitoFinder (example : Gene1 is not equal to gene1 or gene-1 , use one unique name for all equivalent genes in the different references)\n"
-                        + "Aborting\n\n"
+                    logging.error(
+                        f'ERROR: Gene named {name} in the reference file(s) are not recognized by MitoFinder.\n \
+                        This gene is not a standard mitochondrial gene (use --ignore or --new-genes options) or please change it to one of the following gene names: \n \
+                        COX1; COX2; COX3; CYTB; ND1; ND2; ND3; ND4; ND4L; ND5; ND6; ATP8; ATP6; rrnL; rrnS \n \
+                        If you decide to use the new-genes option, please be aware that the names of the new genes in your reference(s) should be homogenized to be considered as unique by MitoFinder (example : Gene1 is not equal to gene1 or gene-1 , use one unique name for all equivalent genes in the different references) \n \
+                        Aborting.'
                     )
                 else:
-                    print(
+                    logging.error(
                         "ERROR: The following genes in the reference file(s) are not recognized by MitoFinder."
                     )
                     for k, v in dico_unknown.items():
-                        print(" -" + k)
-                        logfile.write(" -" + k + "\n")
-                    print(
-                        "These genes are not standard mitochondrial genes (use --ignore or --new-genes options) or please change them to one of the following gene names:"
+                        logging.error(" -" + k)
+                    logging.error(
+                        "These genes are not standard mitochondrial genes (use --ignore or --new-genes options) or please change them to one of the following gene names: \n \
+                        COX1; COX2; COX3; CYTB; ND1; ND2; ND3; ND4; ND4L; ND5; ND6; ATP8; ATP6; rrnL; rrnS \n \
+                        If you decide to use the new-genes option, please be aware that the names of the new genes in your reference(s) should be homogenized to be considered as unique by MitoFinder (example : Gene1 is not equal to gene1 or gene-1 , use one unique name for all equivalent genes in the different references) \n \
+                        Aborting."
                     )
-                    print(
-                        "COX1; COX2; COX3; CYTB; ND1; ND2; ND3; ND4; ND4L; ND5; ND6; ATP8; ATP6; rrnL; rrnS"
-                    )
-                    print(" ")
-                    print(
-                        "If you decide to use the new-genes option, please be aware that the names of the new genes in your reference(s) should be homogenized to be considered as unique by MitoFinder (example : Gene1 is not equal to gene1 or gene-1 , use one unique name for all equivalent genes in the different references) "
-                    )
-                    print(" ")
-                    print("Aborting")
-                    print(" ")
-                    logfile.write(
-                        'ERROR: Gene named "'
-                        + name
-                        + '" in the reference file(s) are not recognized by MitoFinder\n'
-                        + "These genes are not standard mitochondrial genes (use --ignore or --new-genes options) or please change them to one of the following gene names:\n"
-                        + "COX1; COX2; COX3; CYTB; ND1; ND2; ND3; ND4; ND4L; ND5; ND6; ATP8; ATP6; rrnL; rrnS\n\nIf you decide to use the new-genes option, please be aware that the names of the new genes in your reference(s) should be homogenized to be considered as unique by MitoFinder (example : Gene1 is not equal to gene1 or gene-1 , use one unique name for all equivalent genes in the different references)\n"
-                        + "Aborting\n\n"
-                    )
-                exit()
-
-            print("")
-            logfile.write("\n")
+                exit(1)
 
             command = (
                 "makeblastdb -in " + str(faa_filename) + " -dbtype nucl"
@@ -1311,15 +1195,10 @@ def main():
         "rrnS",
     ):
         if not i in open(pathtowork + "/genes_list", "r").read():
-            print(
+            logging.info(
                 "WARNING: "
                 + i
                 + " is not in the reference file. MitoFinder will not annotate this gene."
-            )
-            logfile.write(
-                "WARNING: "
-                + i
-                + " is not in the reference file. MitoFinder will not annotate this gene.\n"
             )
 
     Assembly = True
@@ -1355,7 +1234,6 @@ def main():
         os.makedirs(pathOfFinalResults)
 
     if Assembly == True:
-        logfile.close()
         # let's call megahit
         if args.megahit == True and args.idba == False and args.metaspades == False:
             firstStep = runMegahit.runMegahit(
@@ -1366,24 +1244,18 @@ def main():
                 refSeqFile=args.refSeqFile,
                 organismType=args.organismType,
                 maxMemory=args.mem,
-                logfile=Logfile,
                 override=args.override,
             )
             out = args.processName + "_megahit"
-            logfile = open(Logfile, "a")
             if (
                 not os.path.isfile(pathtowork + "/" + out + "/" + out + ".contigs.fa")
                 == True
             ):
-                print("\n Megahit didn't run")
-                print(
-                    "Delete or rename the Megahit result folder and restart MitoFinder"
-                )
-                logfile.write(
+                logging.info(
                     "\n Megahit didn't run\n"
                     + "Delete or rename the Megahit result folder and restart MitoFinder\n"
                 )
-                exit()
+                exit(1)
             if os.path.exists(
                 pathtowork + "/" + args.processName + "_link_megahit.scafSeq"
             ):
@@ -1403,21 +1275,15 @@ def main():
                 processorsToUse=args.processorsToUse,
                 refSeqFile=args.refSeqFile,
                 organismType=args.organismType,
-                logfile=Logfile,
                 override=args.override,
             )
             out = args.processName + "_idba"
-            logfile = open(Logfile, "a")
             if not os.path.isfile(pathtowork + "/" + out + "/contig.fa") == True:
-                print("\n IDBA-UD didn't run")
-                print(
-                    "Delete or rename the IDBA-UD result folder and restart MitoFinder"
-                )
-                logfile.write(
+                logging.info(
                     "\n IDBA-UD didn't run\n"
                     + "Delete or rename the IDBA-UD result folder and restart MitoFinder\n"
                 )
-                exit()
+                exit(1)
             if os.path.exists(
                 pathtowork + "/" + args.processName + "_link_idba.scafSeq"
             ):
@@ -1438,24 +1304,18 @@ def main():
                 refSeqFile=args.refSeqFile,
                 organismType=args.organismType,
                 maxMemory=args.mem,
-                logfile=Logfile,
                 override=args.override,
             )
             out = args.processName + "_metaspades"
-            logfile = open(Logfile, "a")
             if (
                 not os.path.isfile(pathtowork + "/" + out + "/" + "scaffolds.fasta")
                 == True
             ):
-                print("\n MetaSPAdes didn't run")
-                print(
-                    "Delete or rename the MetaSPAdes result folder and restart MitoFinder"
-                )
-                logfile.write(
+                logging.error(
                     "\n MetaSPAdes didn't run\n"
                     + "Delete or rename the MetaSPAdes result folder and restart MitoFinder\n"
                 )
-                exit()
+                exit(1)
             if os.path.exists(
                 pathtowork + "/" + args.processName + "_link_metaspades.scafSeq"
             ):
@@ -1470,21 +1330,15 @@ def main():
 
         # identification of contigs matching on the refSeq
         blasteVal = args.blasteVal
-        if args.metaspades == False and args.megahit == False and args.idba == False:
-            logfile = open(Logfile, "a")
-
-        print("Formatting database for mitochondrial contigs identification...")
-        logfile.write(
-            "Formatting database for mitochondrial contigs identification...\n"
-        )
+        logging.info("Formatting database for mitochondrial contigs identification...")
         command = "makeblastdb -in " + link_file + " -dbtype nucl"
 
         args1 = shlex.split(command)
         formatDB = Popen(args1, stdout=open(os.devnull, "wb"))
         formatDB.wait()
 
-        print("Running mitochondrial contigs identification step...")
-        logfile.write("Running mitochondrial contigs identification step...\n")
+        logging.info("Running mitochondrial contigs identification step...")
+        
         with open(args.processName + "_blast_out.txt", "w") as BlastResult:
             command = (
                 "blastn -db "
@@ -1552,55 +1406,32 @@ def main():
 
         if len(collections.OrderedDict(sorted_y)) == 0:
             if sup == 0:
-                print("MitoFinder dit not found any mitochondrial contig")
-                print("")
-                logfile.write("MitoFinder dit not found any mitochondrial contig\n\n")
-                time = datetime.now() - start_time
-                print("Total wall-clock time used by MitoFinder = " + str(time))
-                logfile.write(
-                    "\nTotal wall-clock time used by MitoFinder = " + str(time) + "\n"
-                )
-                exit()
+                logging.warning("MitoFinder did not find any mitochondrial contig.")
             elif sup == 1:
-                print(
+                logging.warning(
                     "MitoFinder dit not found any mitochondrial contig with a size lower than "
                     + str(args.MaxContigSize)
-                    + " bp."
-                )
-                print("")
-                logfile.write(
-                    "MitoFinder dit not found any mitochondrial contig with a size lower than "
-                    + str(args.MaxContigSize)
-                    + " bp.\n\n"
-                )
-                time = datetime.now() - start_time
-                print("Total wall-clock time used by MitoFinder = " + str(time))
-                logfile.write(
-                    "\nTotal wall-clock time used by MitoFinder = " + str(time) + "\n"
-                )
-                exit()
+                    + " bp." )
+                exit(1)
         elif len(collections.OrderedDict(sorted_y)) == 1:
-            print("")
-            print("MitoFinder found a single mitochondrial contig")
-            print("Checking resulting contig for circularization...")
-            logfile.write(
-                "\nMitoFinder found a single mitochondrial contig\n"
+            logging.info(
+                "MitoFinder found a single mitochondrial contig\n"
                 + "Checking resulting contig for circularization...\n"
             )
         elif len(collections.OrderedDict(sorted_y)) > 1:
-            print("")
-            print(
+            logging.info(
                 "MitoFinder found "
                 + str(len(collections.OrderedDict(sorted_y)))
                 + " contigs matching provided mitochondrial reference(s)"
             )
             if args.maxContig == 0:
-                print("Did not check for circularization")
-            logfile.write(
-                "\nMitoFinder found "
+                logging.info("Did not check for circularization")
+            
+            logging.info(
+                "MitoFinder found "
                 + str(len(collections.OrderedDict(sorted_y)))
                 + " contigs matching provided mitochondrial reference(s)"
-                + "\nDid not check for circularization\n"
+                + "\nDid not check for circularization."
             )
 
         if (
@@ -1608,26 +1439,16 @@ def main():
             and len(collections.OrderedDict(sorted_y)) > args.maxContig
         ):
             if args.maxContig == 1:
-                print(
+                logging.info(
                     "As requested, only the first contig (best match) will be analysed"
-                )
-                print("Checking resulting contig for circularization...")
-                logfile.write(
-                    "As requested, only the first contig (best match) will be analysed"
-                    + "\nChecking resulting contig for circularization...\n"
+                    + "\nChecking resulting contig for circularization..."
                 )
             else:
-                print(
+                logging.info(
                     "As requested, only the "
                     + str(args.maxContig)
                     + " first contigs (sorted by hit score) will be analysed"
-                )
-                print("Did not check for circularization")
-                logfile.write(
-                    "As requested, only the "
-                    + str(args.maxContig)
-                    + " first contigs (sorted by hit score) will be analysed"
-                    + "\nDid not check for circularization\n"
+                    + "\nDid not check for circularization."
                 )
 
         fl = 0
@@ -1683,20 +1504,13 @@ def main():
                 .split(",")
             )
             # circularizationcheck will return a tuple with (True, start, end)
-            print("")
-            logfile.write("\n")
 
             resultFile = args.processName + ".fasta"
 
             if fourthStep[0] == "True":
-                print("Evidences of circularization were found!")
-                print(
-                    "Sequence is going to be trimmed according to circularization position. \n"
-                )
-                print("")
-                logfile.write(
-                    "Evidences of circularization were found!\n"
-                    + "Sequence is going to be trimmed according to circularization position. \n\n"
+                logging.info(
+                    "Evidence of circularization was found!\n"
+                    + "Sequence is going to be trimmed according to circularization position."
                 )
                 with open(
                     resultFile, "w"
@@ -1707,12 +1521,8 @@ def main():
                         finalResults, outputResult, "fasta"
                     )  # trims according to circularization position
             else:
-                print(
-                    "Evidences of circularization could not be found, but everyother step was successful"
-                )
-                print("")
-                logfile.write(
-                    "Evidences of circularization could not be found, but everyother step was successful\n\n"
+                logging.info(
+                    "Evidences of circularization could not be found, but everyother step was successful."
                 )
                 with open(
                     resultFile, "w"
@@ -1737,9 +1547,7 @@ def main():
                 os.makedirs(pathOfFinalResults)
 
             # creating some stat file:
-            print("\n")
-            print("Creating summary statistics for the mtDNA contig")
-            logfile.write("\n\n" + "Creating summary statistics for the mtDNA contig\n")
+            logging.info("Creating summary statistics for the mtDNA contig")
 
             finalResults = SeqIO.read(open(resultFile, "rU"), "fasta")
             finalStatsFile = open(pathOfFinalResults + args.processName + ".infos", "w")
@@ -1797,10 +1605,7 @@ def main():
             os.remove(resultFile)
 
             # Annotating with gene_checker
-            print("")
-            print("Annotating mitochondrial contig")
-            print("")
-            logfile.write("\nAnnotating\n\n")
+            logging.info("Annotating mitochondrial contig")
 
             if recordCount > 1:  # if more than 1 ref
                 if os.path.isfile(pathtowork + "/ref_for_mtDNA_contig.fasta") == True:
@@ -2094,20 +1899,14 @@ def main():
                     pathOfFinalResults + "/" + args.processName + "_mtDNA_contig.arwen"
                 )
                 if os.path.isfile(test_arwen) == True:
-                    print("tRNA annotation with Arwen run well.\n")
-                    logfile.write("tRNA annotation with Arwen run well.\n\n")
+                    logging.info("tRNA annotation with Arwen run well.\n")
                 else:
-                    print(
+                    logging.error(
                         "ERROR: tRNA annotation failed.\nPlease check  "
                         + pathtowork
                         + "/geneChecker_error.log or geneChecker.log to see what happened\nAborting\n"
                     )
-                    logfile.write(
-                        "ERROR: tRNA annotation failed.\nPlease check  "
-                        + pathtowork
-                        + "/geneChecker_error.log or geneChecker.log to see what happened\nAborting\n\n"
-                    )
-                    exit()
+                    exit(1)
             elif tRNA == "trnascan":
                 test_trnascan = (
                     pathOfFinalResults
@@ -2116,28 +1915,15 @@ def main():
                     + "_mtDNA_contig.trnascan"
                 )
                 if os.path.isfile(test_trnascan) == True:
-                    print("tRNA annotation with tRNAscan-SE run well.\n")
-                    logfile.write("tRNA annotation with tRNAscan-SE run well.\n\n")
+                    logging.info("tRNA annotation with tRNAscan-SE run well.\n")
                 else:
-                    print(
+                    logging.error(
                         "ERROR: tRNA annotation failed.\nPlease check  "
                         + pathtowork
                         + "/geneChecker_error.log or geneChecker.log to see what happened\nAborting\n"
                     )
-                    logfile.write(
-                        "ERROR: tRNA annotation failed.\nPlease check  "
-                        + pathtowork
-                        + "/geneChecker_error.log or geneChecker.log to see what happened\nAborting\n\n"
-                    )
-                    exit()
-            elif tRNA == "mitfi":
-
-                def check_if_string_in_file(f, string):
-                    with open(f, "r") as read_obj:
-                        for line in read_obj:
-                            if string in line:
-                                return True
-                    return False
+                    exit(1)
+            elif tRNA == "mitfi":   
 
                 if check_if_string_in_file(
                     pathtowork + "/geneChecker.log", "MiTFi failed."
@@ -2147,7 +1933,7 @@ def main():
                         pathOfFinalResults + "MiTFi.log", "hits"
                     )
                 ):
-                    print(
+                    logging.error(
                         "ERROR: tRNA annotation failed.\nTo see what happened, please check:\n"
                         + pathtowork
                         + "/geneChecker_error.log \n"
@@ -2156,38 +1942,22 @@ def main():
                         + pathOfFinalResults
                         + "MiTFi.log\nAborting\n"
                     )
-                    logfile.write(
-                        "ERROR: tRNA annotation failed.\nTo see what happened, please check:\n"
-                        + pathtowork
-                        + "/geneChecker_error.log \n"
-                        + pathtowork
-                        + "/geneChecker.log \nor "
-                        + pathOfFinalResults
-                        + "MiTFi.log\nAborting\n\n"
-                    )
-                    exit()
+                    exit(1)
                 else:
-                    print("tRNA annotation with MitFi run well.\n")
-                    logfile.write("tRNA annotation with MitFi run well.\n\n")
+                    logging.info("tRNA annotation with MitFi ran well.\n")
 
             test_gene_checker = (
                 pathOfFinalResults + args.processName + "_mtDNA_contig.gb"
             )
             if os.path.isfile(test_gene_checker) == True:
-                print("Annotation completed\n")
-                logfile.write("Annotation completed\n\n")
+                logging.info("Annotation completed\n")
             else:
-                print(
+                logging.error(
                     "ERROR: Gene annotation failed\nPlease check  "
                     + pathtowork
                     + "/geneChecker_error.log to see what happened\nAborting\n"
                 )
-                logfile.write(
-                    "ERROR: Gene annotation failed\nPlease check  "
-                    + pathtowork
-                    + "/geneChecker_error.log to see what happened\nAborting\n\n"
-                )
-                exit()
+                exit(1)
 
         elif fl > 1:
             if os.path.isfile(pathtowork + "/" + "geneChecker.log") == True:
@@ -2250,15 +2020,7 @@ def main():
                     os.makedirs(pathOfFinalResults)
 
                 # creating some stat file:
-                print("\n")
-                print("Creating summary statistics for mtDNA contig " + str(c))
-                print("")
-                logfile.write(
-                    "\n\n"
-                    + "Creating summary statistics for mtDNA contig "
-                    + str(c)
-                    + "\n\n"
-                )
+                logging.info("Creating summary statistics for mtDNA contig " + str(c))
 
                 finalResults = SeqIO.read(open(resultFile, "rU"), "fasta")
                 finalStatsFile = open(
@@ -2346,12 +2108,8 @@ def main():
                 formatDB.wait()
 
                 if recordCount > 1:  # if more than 1 ref
-                    print("Looking for best reference genes for mtDNA contig " + str(c))
-                    print("")
-                    logfile.write(
-                        "Looking for best reference genes for mtDNA contig "
-                        + str(c)
-                        + "\n\n"
+                    logging.info(
+                        "Looking for best reference genes for mtDNA contig " + str(c)
                     )
 
                     if (
@@ -2465,9 +2223,7 @@ def main():
 
                         refFile.close()
 
-                print("Annotating mtDNA contig " + str(c))
-                print("")
-                logfile.write("Annotating mtDNA contig " + str(c) + "\n\n")
+                logging.info("Annotating mtDNA contig " + str(c))
 
                 # Annotating with gene_checker
 
@@ -2691,20 +2447,14 @@ def main():
                         + ".arwen"
                     )
                     if os.path.isfile(test_arwen) == True:
-                        print("tRNA annotation with Arwen run well.\n")
-                        logfile.write("tRNA annotation with Arwen run well.\n\n")
+                        logging.info("tRNA annotation with Arwen run well.\n")
                     else:
-                        print(
+                        logging.error(
                             "ERROR: tRNA annotation failed.\nPlease check  "
                             + pathtowork
                             + "/geneChecker_error.log or geneChecker.log to see what happened\nAborting\n"
                         )
-                        logfile.write(
-                            "ERROR: tRNA annotation failed.\nPlease check  "
-                            + pathtowork
-                            + "/geneChecker_error.log or geneChecker.log to see what happened\nAborting\n\n"
-                        )
-                        exit()
+                        exit(1)
                 elif tRNA == "trnascan":
                     test_trnascan = (
                         pathOfFinalResults
@@ -2715,20 +2465,14 @@ def main():
                         + ".trnascan"
                     )
                     if os.path.isfile(test_trnascan) == True:
-                        print("tRNA annotation with tRNAscan-SE run well.\n")
-                        logfile.write("tRNA annotation with tRNAscan-SE run well.\n\n")
+                        logging.info("tRNA annotation with tRNAscan-SE run well.\n")
                     else:
-                        print(
+                        logging.error(
                             "ERROR: tRNA annotation failed.\nPlease check  "
                             + pathtowork
                             + "/geneChecker_error.log or geneChecker.log to see what happened\nAborting\n"
                         )
-                        logfile.write(
-                            "ERROR: tRNA annotation failed.\nPlease check  "
-                            + pathtowork
-                            + "/geneChecker_error.log or geneChecker.log to see what happened\nAborting\n\n"
-                        )
-                        exit()
+                        exit(1)
                 elif tRNA == "mitfi":
 
                     def check_if_string_in_file(f, string):
@@ -2746,7 +2490,7 @@ def main():
                             pathOfFinalResults + "MiTFi.log", "hits"
                         )
                     ):
-                        print(
+                        logging.error(
                             "ERROR: tRNA annotation failed.\nTo see what happened, please check:\n"
                             + pathtowork
                             + "/geneChecker_error.log \n"
@@ -2755,19 +2499,9 @@ def main():
                             + pathOfFinalResults
                             + "MiTFi.log\nAborting\n"
                         )
-                        logfile.write(
-                            "ERROR: tRNA annotation failed.\nTo see what happened, please check:\n"
-                            + pathtowork
-                            + "/geneChecker_error.log \n"
-                            + pathtowork
-                            + "/geneChecker.log \nor "
-                            + pathOfFinalResults
-                            + "MiTFi.log\nto see what happened\nAborting\n\n"
-                        )
-                        exit()
+                        exit(1)
                     else:
-                        print("tRNA annotation with MitFi run well.\n")
-                        logfile.write("tRNA annotation with MitFi run well.\n\n")
+                        logging.info("tRNA annotation with MitFi run well.\n")
                 test_gene_checker = (
                     pathOfFinalResults
                     + args.processName
@@ -2776,32 +2510,21 @@ def main():
                     + ".gb"
                 )
                 if os.path.isfile(test_gene_checker) == True:
-                    print("Annotation completed\n")
-                    logfile.write("Annotation completed\n" + "\n")
+                    logging.info("Annotation completed\n")
                 else:
-                    print(
+                    logging.error(
                         "ERROR: Gene annotation failed for mtDNA contig "
                         + str(c)
                         + ".\nPlease check  "
                         + pathtowork
                         + "/geneChecker_error.log to see what happened\nAborting\n"
                     )
-                    logfile.write(
-                        "ERROR: Gene annotation failed for mtDNA contig "
-                        + str(c)
-                        + ".\nPlease check  "
-                        + pathtowork
-                        + "/geneChecker_error.log to see what happened\nAborting\n"
-                        + "\n"
-                    )
-                    exit()
+                    exit(1)
                 c += 1
 
     # Creating GFF and fasta file
 
-    print("\nCreating GFF and fasta files.\n")
-    print("Note: ")
-    logfile.write("\nCreating GFF and fasta files.\n\n" + "Note: " + "\n")
+    logging.info("\nCreating GFF and fasta files.\n\n" + "Note: " + "\n")
     for f in sorted(glob.glob(pathOfFinalResults + "/*.gb"), key=os.path.getmtime):
         gnb = 0
         out_fasta_nt = f.split(".gb")[0] + "_genes_NT.fasta"
@@ -2916,46 +2639,25 @@ def main():
         out_fasta_nt.close()
         out_fasta_aa.close()
         if gnb == 0:
-            print(
+            logging.info(
                 str(gnb)
                 + " gene was found in "
                 + f.split(".gb")[0].split("Final_Results/" + args.processName + "_")[1]
-            )
-            logfile.write(
-                str(gnb)
-                + " gene was found in "
-                + f.split(".gb")[0].split("Final_Results/" + args.processName + "_")[1]
-                + "\n"
             )
             os.remove(f.split(".gb")[0] + "_genes_NT.fasta")
             os.remove(f.split(".gb")[0] + "_genes_AA.fasta")
         elif gnb == 1:
-            print(
+            logging.info(
                 str(gnb)
                 + " gene was found in "
                 + f.split(".gb")[0].split("Final_Results/" + args.processName + "_")[1]
-            )
-            logfile.write(
-                str(gnb)
-                + " gene was found in "
-                + f.split(".gb")[0].split("Final_Results/" + args.processName + "_")[1]
-                + "\n"
             )
         else:
-            print(
+            logging.info(
                 str(gnb)
                 + " genes were found in "
                 + f.split(".gb")[0].split("Final_Results/" + args.processName + "_")[1]
             )
-            logfile.write(
-                str(gnb)
-                + " genes were found in "
-                + f.split(".gb")[0].split("Final_Results/" + args.processName + "_")[1]
-                + "\n"
-            )
-
-    print("")
-    logfile.write("\n")
 
     # sort gff
     pathlist = glob.glob(pathOfFinalResults + "/*.gb")
@@ -3041,17 +2743,7 @@ def main():
 
         for key, value in dico_gcount.items():
             if value > 1 and c > 1:
-                print(
-                    "WARNING: "
-                    + key
-                    + " has been found more than once ("
-                    + str(value)
-                    + ") in the different mitochondrial contigs."
-                )
-                print(
-                    "MitoFinder selected the longest sequence as the final sequence.\n"
-                )
-                logfile.write(
+                logging.warning(
                     "WARNING : "
                     + key
                     + " has been found more than once ("
@@ -3091,22 +2783,10 @@ def main():
             final_fasta.write(">" + args.processName + "@" + key + "\n" + value + "\n")
         final_fasta.close()
 
-    print("## Final sequence saved to " + pathOfFinalResults)
-
-    logfile.write("## Final sequence saved to " + pathOfFinalResults + "\n" + "\n")
+    logging.info("## Final sequence saved to " + pathOfFinalResults)
 
     if double_gene == 1:
-        print(
-            "\n/!\\ WARNING /!\\ "
-            + str(double_gene)
-            + ' gene was found more than once suggesting either fragmentation, NUMT annotations, or potential contamination of your sequencing data.\nDifferent contigs may be part of different organisms thus "'
-            + args.processName
-            + '_final_genes_NT.fasta"'
-            + ' and "'
-            + args.processName
-            + '_final_genes_AA.fasta" could be erroneous.\nWe recommend to check contigs and associated genes separately.\n'
-        )
-        logfile.write(
+        logging.warning(
             "\n/!\\ WARNING /!\\ "
             + str(double_gene)
             + ' gene was found more than once suggesting either fragmentation, NUMT annotations, or potential contamination of your sequencing data.\nDifferent contigs may be part of different organisms thus "'
@@ -3117,17 +2797,7 @@ def main():
             + '_final_genes_AA.fasta" could be erroneous.\nWe recommend to check contigs and associated genes separately.\n'
         )
     elif double_gene > 1:
-        print(
-            "\n/!\\ WARNING /!\\ "
-            + str(double_gene)
-            + ' genes were found more than once suggesting either fragmentation, NUMT annotations, or potential contamination of your sequencing data.\nDifferent contigs may be part of different organisms thus "'
-            + args.processName
-            + '_final_genes_NT.fasta"'
-            + ' and "'
-            + args.processName
-            + '_final_genes_AA.fasta" could be erroneous.\nWe recommend to check contigs and associated genes separately.\n'
-        )
-        logfile.write(
+        logging.warning(
             "\n/!\\ WARNING /!\\ "
             + str(double_gene)
             + ' genes were found more than once suggesting either fragmentation, NUMT annotations, or potential contamination of your sequencing data.\nDifferent contigs may be part of different organisms thus "'
@@ -3139,18 +2809,12 @@ def main():
         )
 
     if args.gap == 1 and args.numt == 0:
-        print(
-            '\n/!\\ WARNING /!\\ You have chosen to use the "allow-intron" option. Given that the annotation of exons is only based on similarity (BLASTX), we highly recommend to double-check the annotation.\n'
-        )
-        logfile.write(
+        logging.warning(
             '\n/!\\ WARNING /!\\ You have chosen to use the "allow-intron" option. Given that the annotation of exons is only based on similarity (BLASTX), we highly recommend to double-check the annotation.\n'
         )
 
     if args.gap == 1 and args.numt == 1:
-        print(
-            "\n/!\\ WARNING /!\\ You have chosen to search for both introns and numts sequences at the same. This is difficult task. In that sense, please be cautious about the results! Some options are limited, for example, nWalk = 0 so you need to have a pretty good reference to optimize the annotation step."
-        )
-        logfile.write(
+        logging.warning(
             "\n/!\\ WARNING /!\\ You have chosen to search for both introns and numts sequences at the same. This is difficult task. In that sense, please be cautious about the results! Some options are limited, for example, nWalk = 0 so you need to have a pretty good reference to optimize the annotation step."
         )
 
@@ -3235,10 +2899,6 @@ def main():
     for f in glob.glob(pathOfFinalResults + args.processName + "*ref.cds.fasta"):
         shutil.copy(f, tmpfiles + "/")
         os.remove(f)
-
-    time = datetime.now() - start_time
-    print("Total wall-clock time used by MitoFinder = " + str(time))
-    logfile.write("\nTotal wall-clock time used by MitoFinder = " + str(time) + "\n")
 
 
 if __name__ == "__main__":
