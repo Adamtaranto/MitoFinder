@@ -5,6 +5,7 @@ from Bio import SeqIO, SearchIO, SeqFeature
 
 from subprocess import Popen
 import shlex, sys, os, shutil
+import logging
 
 
 class Alignment:
@@ -70,7 +71,7 @@ def geneCheck(
     # 	record = SeqIO.read(genBankReference, "genbank")
     refSeq = SeqIO.read(resultFile, "fasta")
     listOfImportantFeatures = {}
-    print(
+    logging.info(
         "Checking protein-coding genes, tRNAs and rRNAs from reference with organismType=%s..."
         % organismType
     )
@@ -95,14 +96,14 @@ def geneCheck(
     # running blast
     dico_feature = {}
     if nbrgene > 0:
-        print("Formatting database for blast...")
+        logging.info("Formatting database for blast...")
         command = "makeblastdb -in important_features.fasta -dbtype prot"  # need to formatdb refseq first
 
         args = shlex.split(command)
         formatDB = Popen(args, stdout=open(os.devnull, "wb"))
         formatDB.wait()
 
-        # print("Running blast against refSeq to determine if a hit was built...")
+        # logging.info("Running blast against refSeq to determine if a hit was built...")
         with open("important_features.blast.xml", "w") as blastResultFile:
             if usedOwnGenBankReference == True:  # using a personal genbank reference
                 command = (
@@ -115,7 +116,7 @@ def geneCheck(
                     + " -seg no"
                 )  # call BLAST with XML output
             else:  # using a non personal genbank reference
-                print("Genetic code: ", str(organismType))
+                logging.info("Genetic code: ", str(organismType))
                 command = (
                     "blastx -db important_features.fasta -query "
                     + resultFile
@@ -140,7 +141,7 @@ def geneCheck(
                     + " -seg no"
                 )  # call BLAST with XML output
             else:  # using a non personal genbank reference
-                print("Genetic code: ", str(organismType))
+                logging.info("Genetic code: ", str(organismType))
                 command = (
                     "blastx -db important_features.fasta -query "
                     + resultFile
@@ -213,7 +214,7 @@ def geneCheck(
                                         and intron == 1
                                         and numt == 0
                                     ):
-                                        print("%s is split" % featureName)
+                                        logging.info("%s is split" % featureName)
                                         if not (
                                             startBase
                                             > mainFeatureFoundAlignment.startBase
@@ -222,7 +223,7 @@ def geneCheck(
                                         ):
                                             if featureName not in listOfSplits:
                                                 listOfSplits.append(featureName)
-                                            print(featureName)
+                                            logging.info(featureName)
                                             dico_feature[featureName] = (
                                                 dico_feature.get(featureName) + 1
                                             )
@@ -268,7 +269,7 @@ def geneCheck(
                                         and numt == 1
                                         and intron == 0
                                     ):
-                                        print("%s is duplicated." % featureName)
+                                        logging.info("%s is duplicated." % featureName)
                                         if not (
                                             startBase
                                             > mainFeatureFoundAlignment.startBase
@@ -352,8 +353,8 @@ def geneCheck(
                                         ):
                                             if featureName not in listOfSplits:
                                                 listOfSplits.append(featureName)
-                                            print(intron)
-                                            print(featureName)
+                                            logging.info(intron)
+                                            logging.info(featureName)
                                             dico_feature[featureName] = (
                                                 dico_feature.get(featureName) + 1
                                             )
@@ -450,7 +451,7 @@ def geneCheck(
 
     # running blast
     if nbrRNA > 0:
-        print("Formatting database for blast...")
+        logging.info("Formatting database for blast...")
         command = "makeblastdb -in important_features.fasta -dbtype nucl"  # need to formatdb refseq first
 
         args = shlex.split(command)
@@ -542,7 +543,9 @@ def geneCheck(
                                 endBase = max(hsp.query_range[0], hsp.query_range[1])
                                 alignLen = (endBase - startBase) + 1
                                 if featureName in listOfPresentFeatures:
-                                    print("%s is split or duplicated" % featureName)
+                                    logging.info(
+                                        "%s is split or duplicated" % featureName
+                                    )
                                     mainFeatureName = featureName
                                     mainFeatureFound = listOfPresentFeatures[
                                         mainFeatureName
@@ -575,7 +578,7 @@ def geneCheck(
                                         and intron == 1
                                         and numt == 0
                                     ):
-                                        print("%s is split" % featureName)
+                                        logging.info("%s is split" % featureName)
                                         if not (
                                             startBase
                                             > mainFeatureFoundAlignment.startBase
@@ -622,7 +625,7 @@ def geneCheck(
                                         and numt == 1
                                         and intron == 0
                                     ):
-                                        print("%s is duplicated." % featureName)
+                                        logging.info("%s is duplicated." % featureName)
                                         if not (
                                             startBase
                                             > mainFeatureFoundAlignment.startBase
@@ -774,8 +777,7 @@ def createImageOfAnnotation(sequenceObject, outputFile):
     try:
         from PIL import ImageFont, Image, ImageDraw
     except:
-        print("")
-        print(
+        logging.error(
             "Could not import Image or ImageDraw library, no image of result being created."
         )
         return False
@@ -922,6 +924,10 @@ def createImageOfAnnotation(sequenceObject, outputFile):
 
 
 def main():
+    # Config logging when called as main.
+    logging.basicConfig(
+        level=0, format="%(asctime)s:%(levelname)s:%(module)s:%(message)s"
+    )
     blasteVal = sys.argv[7]
     percent_equality_prot = sys.argv[8]
     percent_equality_nucl = sys.argv[9]
@@ -933,10 +939,10 @@ def main():
     tRNAscan = sys.argv[15]
 
     if sys.argv[1] == "-h" or sys.argv[1] == "--help":
-        print(
+        logging.info(
             "Usage: genbank_reference fasta_file output_file organism_type(integer, default=2) alignCutOff(float, default=45) coveCutOff(7)"
         )
-        print("Only the first, second, and third arguments are required.")
+        logging.info("Only the first, second, and third arguments are required.")
     else:
         is_avail(["makeblastdb", "blastn", "blastx"])
 
@@ -946,24 +952,24 @@ def main():
         outputFile = sys.argv[3]
         try:
             organismType = int(sys.argv[4])
-            print("Organism type specified: %s" % organismType)
+            logging.info("Organism type specified: %s" % organismType)
         except:
             organismType = 2
-            print(
+            logging.warning(
                 "organism_type was not specified, assuming 2 (vertebrate mitochondria)"
             )
         try:
             alignCutOff = float(sys.argv[5])
-            print("alignCutOff: %s" % alignCutOff)
+            logging.info("alignCutOff: %s" % alignCutOff)
         except:
             alignCutOff = 45
-            print("alignCutOff was not specified, assuming 0.5")
+            logging.info("alignCutOff was not specified, assuming 0.5")
         try:
             coveCutOff = int(sys.argv[6])
-            print("coveCutOff: %s" % coveCutOff)
+            logging.info("coveCutOff: %s" % coveCutOff)
         except:
             coveCutOff = 7
-            print("coveCutOff was not specified, assuming 7")
+            logging.info("coveCutOff was not specified, assuming 7")
         x = geneCheck(
             fastaReference=fastaReference,
             resultFile=resultFile,
@@ -979,10 +985,9 @@ def main():
             alignCutOff=alignCutOff,
             out_blast=out_blast,
         )
-        print("Features found: %s" % len(x[0]))
-        print("Total features: %s" % len(x[1]))
-        print("")
-        print("Running tRNA annotation with " + tRNAscan)
+        logging.info("Features found: %s" % len(x[0]))
+        logging.info("Total features: %s" % len(x[1]))
+        logging.info("Running tRNA annotation with " + tRNAscan)
         presentFeatures = x[0]
         assemblyCheck = tRNAscanChecker.tRNAscanCheck(
             resultFile, True, False, organismType, coveCutOff, False, False, tRNAscan
@@ -1023,7 +1028,9 @@ def main():
         for tRNAFound in tRNAs:
             tRNAName = "trna-" + tRNAFound.tRNAtype.lower()
             if tRNAFound.tRNAintronBegin > 0:
-                print("WARNING: %s was found with an intron!" % prettyRNAName(tRNAName))
+                logging.warning(
+                    "WARNING: %s was found with an intron!" % prettyRNAName(tRNAName)
+                )
             if (
                 tRNAName not in tRNAconvert(listOfFoundTRNAs)
                 and "trna-sec" not in tRNAName
@@ -1053,7 +1060,7 @@ def main():
                 listOfFeaturesToOutput.append(thisFeatureFound)
 
         listOfFeaturesToOutput.sort()
-        print(
+        logging.info(
             "Total features found after " + str(tRNAscan) + ": ",
             len(listOfFeaturesToOutput),
         )
