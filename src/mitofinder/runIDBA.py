@@ -23,7 +23,6 @@ def runIDBA(
     organismType=2,
     override=False,
 ):
-    pathToIdba = idbaFolder
     bestBuild = None
 
     logging.info("Starting Assembly step with IDBA-UD ")
@@ -114,8 +113,7 @@ def runIDBA(
                 print("Paired-end")
                 logging.info("Paired-end" + "\n")
                 read = processName + "_idba_read.fasta"
-                command = "%sfq2fa --merge --filter %s %s %s" % (
-                    pathToIdba,
+                command = "fq2fa --merge --filter %s %s %s" % (
                     read1,
                     read2,
                     read,
@@ -135,8 +133,7 @@ def runIDBA(
                         + "\n"
                     )
                     exit(1)
-                command = "%sidba -r %s -o %s --num_threads %s" % (
-                    pathToIdba,
+                command = "idba -r %s -o %s --num_threads %s" % (
                     read,
                     out,
                     processorsToUse,
@@ -151,7 +148,7 @@ def runIDBA(
             if t == "SE":
                 logging.info("Single-end")
                 read = processName + "_idba_read.fasta"
-                command = "%sfq2fa --filter %s %s" % (pathToIdba, read1, read)
+                command = "fq2fa --filter %s %s" % (read1, read)
                 logging.info("Preparing data for IDBA-UD assembly")
                 fq2fa = Popen(
                     command, stdout=idbaLogFile, stderr=idbaLogFile, shell=True
@@ -167,8 +164,7 @@ def runIDBA(
                         + "\n"
                     )
                     exit(1)
-                command = "%sidba -r %s -o %s --num_threads %s" % (
-                    pathToIdba,
+                command = "idba -r %s -o %s --num_threads %s" % (
                     read,
                     out,
                     processorsToUse,
