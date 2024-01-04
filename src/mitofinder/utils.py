@@ -7,6 +7,24 @@ import logging
 from typing import List
 
 
+def add_to_path(new_path):
+    current_path = os.environ.get("PATH", "")
+    new_path = os.path.abspath(new_path)
+
+    # Check if the path is not already in the $PATH
+    if new_path not in current_path:
+        # Prepend the new path to the existing $PATH
+        os.environ["PATH"] = f"{new_path}{os.pathsep}{current_path}"
+
+
+def check_if_string_in_file(f, string):
+    with open(f, "r") as read_obj:
+        for line in read_obj:
+            if string in line:
+                return True
+    return False
+
+
 def is_avail(tool_names, kill=True):
     for tool_name in tool_names:
         tool_path = shutil.which(tool_name)
@@ -91,11 +109,3 @@ def setup_directory(directory_path):
         shutil.rmtree(directory_path)
         os.makedirs(directory_path)
         logging.info(f"Directory cleaned: '{directory_path}'")
-
-
-def check_if_string_in_file(f, string):
-    with open(f, "r") as read_obj:
-        for line in read_obj:
-            if string in line:
-                return True
-    return False
