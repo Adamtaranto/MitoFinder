@@ -6,6 +6,7 @@ from Bio.Data import CodonTable
 from subprocess import Popen
 import shlex, sys, os
 import logging
+import shutil
 
 
 class Assembly:
@@ -30,10 +31,12 @@ class Assembly:
             with open(tRNAscanResultFile, "r") as tRNAscanFile:
                 if tRNAscanResultFile[-6:] == ".mitfi":
                     module_dir = os.path.dirname(__file__)
-                    module_dir = os.path.abspath(module_dir)
-                    module_dir = os.path.join(module_dir, "mitfi/")
+                    module_dir = os.path.abspath(os.path.join(module_dir, "../../bin"))
+                    module_dir = os.path.join(module_dir, "mitfi")
                     dico_tRNA = {}
-                    for line in open(module_dir + "Codon-Amino_Acid_Abbreviations.csv"):
+                    for line in open(
+                        module_dir + "/Codon-Amino_Acid_Abbreviations.csv"
+                    ):
                         dico_tRNA[line.rstrip().split(";")[3]] = line.split(";")[2]
                     c = 1
                     for line in tRNAscanFile:
@@ -251,9 +254,12 @@ def tRNAscanCheck(
             # If not avail on PATH add bundled package to path.
             if not is_avail(["mitfi.jar"], kill=False):
                 module_dir = os.path.join(module_dir, "mitfi")
+                logging.info(f"Fallback to bundled Mitfi: {module_dir}")
                 add_to_path(module_dir)
                 # or let mitofinder handle paths later
                 MitFiFolder = module_dir
+            else:
+                MitFiFolder = os.path.dirname(shutil.which("mitfi.jar"))
             # Set output file extension
             outputName = resultFile[0:-6] + ".mitfi"
 
@@ -267,6 +273,7 @@ def tRNAscanCheck(
             # If not avail on PATH add bundled package to path.
             if not is_avail(["arwen"], kill=False):
                 module_dir = os.path.join(module_dir, "arwen")
+                logging.info(f"Fallback to bundled Arwen: {module_dir}")
                 add_to_path(module_dir)
                 # or let mitofinder handle paths later
                 ArwenFolder = module_dir
@@ -278,11 +285,17 @@ def tRNAscanCheck(
         if tRNAscan == "mitfi":
             try:
                 os.environ["PATH"] += os.pathsep + MitFiFolder
+            except KeyError:
+                pass
+            except:
+                logging.error("Error setting MitFi PATH.")
+
+            try:
                 os.environ["PERL5LIB"] += os.pathsep + MitFiFolder
             except KeyError:
                 pass
             except:
-                logging.error("Error setting MitFi path.")
+                logging.error("Error setting PERL5LIB MitFi path.")
         elif tRNAscan == "arwen":
             try:
                 os.environ["PATH"] += os.pathsep + ArwenFolder
@@ -301,33 +314,19 @@ def tRNAscanCheck(
             out = outputName
             try:
                 with open("MiTFi.log", "w") as tRNAscanLog:
-                    if MitFiFolder.lower() == "installed":
-                        command = (
-                            "java -jar mitfi.jar -code "
-                            + str(organismType)
-                            + " "
-                            + scanInput
-                        )
-                        args = shlex.split(command)
-                        tRNAscanRun = Popen(
-                            args, stdout=open(outputName, "w"), stderr=tRNAscanLog
-                        )
-                    else:
-                        command = (
-                            "java -jar "
-                            + MitFiFolder
-                            + "mitfi.jar -code "
-                            + str(organismType)
-                            + " "
-                            + scanInput
-                        )
-                        args = shlex.split(command)
-                        tRNAscanRun = Popen(
-                            args,
-                            cwd=MitFiFolder,
-                            stdout=open(outputName, "w"),
-                            stderr=tRNAscanLog,
-                        )
+                    command = (
+                        "java -jar "
+                        + MitFiFolder
+                        + "/mitfi.jar -code "
+                        + str(organismType)
+                        + " "
+                        + scanInput
+                    )
+                    args = shlex.split(command)
+                    logging.info(f"Calling: {" ".join(args)}")
+                    tRNAscanRun = Popen(
+                        args, stdout=open(outputName, "w"), stderr=tRNAscanLog
+                    )  # cwd=MitFiFolder
                     tRNAscanRun.wait()
 
                 thisSequenceResult = Assembly(
@@ -371,41 +370,19 @@ def tRNAscanCheck(
 
             try:
                 with open("tRNAscan-SE.log", "w") as tRNAscanLog:
-                    if tRNAscanFolder.lower() == "installed":
-                        command = (
-                            "tRNAscan-SE -X "
-                            + str(coveCutOff)
-                            + " "
-                            + geneticCode
-                            + organismFlag
-                            + "-o "
-                            + outputName
-                            + " "
-                            + scanInput
-                        )
-                        args = shlex.split(command)
-                        tRNAscanRun = Popen(
-                            args, stdout=tRNAscanLog, stderr=tRNAscanLog
-                        )
-                    else:
-                        command = (
-                            "tRNAscan-SE -X "
-                            + str(coveCutOff)
-                            + " "
-                            + geneticCode
-                            + organismFlag
-                            + "-o "
-                            + outputName
-                            + " "
-                            + scanInput
-                        )
-                        args = shlex.split(command)
-                        tRNAscanRun = Popen(
-                            args,
-                            cwd=tRNAscanFolder,
-                            stdout=tRNAscanLog,
-                            stderr=tRNAscanLog,
-                        )
+                    command = (
+                        "tRNAscan-SE -X "
+                        + str(coveCutOff)
+                        + " "
+                        + geneticCode
+                        + organismFlag
+                        + "-o "
+                        + outputName
+                        + " "
+                        + scanInput
+                    )
+                    args = shlex.split(command)
+                    tRNAscanRun = Popen(args, stdout=tRNAscanLog, stderr=tRNAscanLog)
                     tRNAscanRun.wait()
 
                 thisSequenceResult = Assembly(
@@ -441,38 +418,19 @@ def tRNAscanCheck(
 
             try:
                 with open("ARWEN.log", "w") as tRNAscanLog:
-                    if ArwenFolder.lower() == "installed":
-                        command = (
-                            "arwen "
-                            + " "
-                            + geneticCode
-                            + "-o "
-                            + outputName
-                            + " -w "
-                            + scanInput
-                        )
-                        args = shlex.split(command)
-                        tRNAscanRun = Popen(
-                            args, stdout=tRNAscanLog, stderr=tRNAscanLog
-                        )
-                    else:
-                        command = (
-                            "arwen "
-                            + " "
-                            + geneticCode
-                            + "-o "
-                            + outputName
-                            + " -w "
-                            + scanInput
-                        )
-                        logging.info(command)
-                        args = shlex.split(command)
-                        tRNAscanRun = Popen(
-                            args,
-                            cwd=ArwenFolder,
-                            stdout=tRNAscanLog,
-                            stderr=tRNAscanLog,
-                        )
+                    command = (
+                        "arwen "
+                        + " "
+                        + geneticCode
+                        + "-o "
+                        + outputName
+                        + " -w "
+                        + scanInput
+                    )
+                    args = shlex.split(command)
+                    tRNAscanRun = Popen(
+                        args, stdout=tRNAscanLog, stderr=tRNAscanLog
+                    )  # cwd=ArwenFolder
                     tRNAscanRun.wait()
 
                 thisSequenceResult = Assembly(
