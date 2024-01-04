@@ -446,7 +446,7 @@ def createImageOfAnnotation(sequenceObject, outputFile):
             module_dir = os.path.abspath(module_dir)
             font_full_path = os.path.join(module_dir, "fonts/FreeSans.ttf")
 
-            font = ImageFont.truetype(font_full_path, 12)
+            font = ImageFont.load_default()
 
             # Now, we'll do the drawing:
             draw.text(text_pos, text, fill="black", font=font)
@@ -478,15 +478,15 @@ def createImageOfAnnotation(sequenceObject, outputFile):
     legendaString = ""
     linha = 1
 
-    while draw.textsize(legendaString, font=font)[
-        0
-    ] < horizontalSize and nlegenda < len(legenda):
+    while draw.textlength(legendaString, font=font) < horizontalSize and nlegenda < len(
+        legenda
+    ):
         nlegenda += 1
         if (
-            draw.textsize(
+            draw.textlength(
                 legendaString + str(nlegenda) + "-" + legenda[nlegenda - 1] + ", ",
                 font=font,
-            )[0]
+            )
             > horizontalSize
         ):
             draw.text(
@@ -582,6 +582,7 @@ def main():
         assemblyCheck = tRNAscanChecker.tRNAscanCheck(
             resultFile, True, False, organismType, coveCutOff, False, False, tRNAscan
         )  # returns a Assembly object with statistics and alignment info
+        # Note: if annot fails this may be type == bool, instead of <class 'mitofinder.tRNAscanChecker.Assembly'>
         tRNAs = assemblyCheck.tRNAs
 
         listOfFeaturesToOutput = []
@@ -651,8 +652,7 @@ def main():
 
         listOfFeaturesToOutput.sort()
         logging.info(
-            "Total features found after " + str(tRNAscan) + ": ",
-            len(listOfFeaturesToOutput),
+            f"Total features found after {str(tRNAscan)}: {len(listOfFeaturesToOutput)}"
         )
 
         finalResults = genbankOutput.genbankOutput(
