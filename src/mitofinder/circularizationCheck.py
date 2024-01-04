@@ -7,9 +7,6 @@ import shlex, sys, os
 import logging
 
 
-logging.basicConfig(level=0, format="%(asctime)s:%(levelname)s:%(name)s:%(message)s")
-
-
 def cleanup_blast(blastTemp):
     if os.path.exists(blastTemp):
         logging.info(f"Cleanup blast output: {blastTemp}")
@@ -105,6 +102,11 @@ def circularizationCheck(resultFile, circularSize, circularOffSet, tempdir):
 
 
 def main():
+    # Config logging which called as main.
+    logging.basicConfig(
+        level=0, format="%(asctime)s:%(levelname)s:%(module)s:%(message)s"
+    )
+
     if sys.argv[1] == "-h" or sys.argv[1] == "--help":
         print(
             "Usage: python -m mitofinder.circularizationCheck [fasta_file] [CircularSize] [CircularOffset] [tempdir] "
