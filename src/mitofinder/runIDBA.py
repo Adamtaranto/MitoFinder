@@ -8,6 +8,7 @@ import shlex
 import shutil
 import subprocess
 import time
+import logging
 
 # Deal with combo single and paired reads
 # fix app path
@@ -20,20 +21,16 @@ def runIDBA(
     processorsToUse=4,
     refSeqFile=None,
     organismType=2,
-    logfile="logfile",
     override=False,
 ):
     pathToIdba = idbaFolder
     bestBuild = None
 
-    print("Starting Assembly step with IDBA-UD ")
-    logfile = open(logfile, "a")
-    logfile.write("Starting Assembly phase with IDBA-UD " + "\n")
+    logging.info("Starting Assembly step with IDBA-UD ")
 
     pathToWork = os.getcwd() + "/"
-    print("Result files will be saved here: ")
-    print(pathToWork + processName + "_idba/")
-    logfile.write(
+
+    logging.info(
         "Result files will be saved here: "
         + "\n"
         + pathToWork
@@ -56,19 +53,7 @@ def runIDBA(
     out = processName + "_idba"
     idba = "yes"
     if os.path.isdir(out) and override == False:
-        print("\n####################################")
-        print(
-            "\n WARNING : "
-            + pathToWork
-            + out
-            + " already exists. (use --override option)"
-        )
-        print("Mitofinder will skip idba step")
-        print(
-            "\nIf you want to run idba again, kill the mitofinder process, remove (or use --override) or rename the idba result folder, and restart mitofinder\n"
-        )
-        print("#####################################\n")
-        logfile.write(
+        logging.info(
             "\n####################################"
             + "\n"
             + "\n WARNING : "
@@ -127,7 +112,7 @@ def runIDBA(
         with open(pathToWork + "idba.log", "a") as idbaLogFile:
             if t == "PE":
                 print("Paired-end")
-                logfile.write("Paired-end" + "\n")
+                logging.info("Paired-end" + "\n")
                 read = processName + "_idba_read.fasta"
                 command = "%sfq2fa --merge --filter %s %s %s" % (
                     pathToIdba,
@@ -135,16 +120,13 @@ def runIDBA(
                     read2,
                     read,
                 )
-                print("Preparing data for IDBA-UD assembly")
-                logfile.write("Preparing data for IDBA-UD assembly" + "\n")
+                logging.info("Preparing data for IDBA-UD assembly")
                 fq2fa = Popen(
                     command, stdout=idbaLogFile, stderr=idbaLogFile, shell=True
                 )
                 fq2fa.wait()
                 if not os.path.isfile(pathToWork + "/" + read) == True:
-                    print("\n ERROR: IDBA-UD didn't run well")
-                    print("Please check log file : " + pathToWork + "idba.log")
-                    logfile.write(
+                    logging.error(
                         "\n ERROR: IDBA-UD didn't run well"
                         + "\n"
                         + "Please check log file : "
@@ -152,7 +134,7 @@ def runIDBA(
                         + "idba.log"
                         + "\n"
                     )
-                    exit()
+                    exit(1)
                 command = "%sidba -r %s -o %s --num_threads %s" % (
                     pathToIdba,
                     read,
@@ -167,20 +149,16 @@ def runIDBA(
                 # copyfile(pathToWork+"/"+out+"/contig.fa", pathToWork+"/"+processName+".scafSeq")
 
             if t == "SE":
-                print("Single-end")
-                logfile.write("Single-end" + "\n")
+                logging.info("Single-end")
                 read = processName + "_idba_read.fasta"
                 command = "%sfq2fa --filter %s %s" % (pathToIdba, read1, read)
-                print("Preparing data for IDBA-UD assembly")
-                logfile.write("Preparing data for IDBA-UD assembly" + "\n")
+                logging.info("Preparing data for IDBA-UD assembly")
                 fq2fa = Popen(
                     command, stdout=idbaLogFile, stderr=idbaLogFile, shell=True
                 )
                 fq2fa.wait()
                 if not os.path.isfile(pathToWork + "/" + read) == True:
-                    print("\n ERROR : IDBA-UD didn't run well")
-                    print("Please check log file : " + pathToWork + "idba.log")
-                    logfile.write(
+                    logging.error(
                         "\n ERROR: IDBA-UD didn't run well"
                         + "\n"
                         + "Please check log file : "
@@ -188,15 +166,14 @@ def runIDBA(
                         + "idba.log"
                         + "\n"
                     )
-                    exit()
+                    exit(1)
                 command = "%sidba -r %s -o %s --num_threads %s" % (
                     pathToIdba,
                     read,
                     out,
                     processorsToUse,
                 )
-                print("Running assembly")
-                logfile.write("Running assembly" + "\n")
+                logging.info("Running assembly")
                 idba = Popen(
                     command, stdout=idbaLogFile, stderr=idbaLogFile, shell=True
                 )
@@ -206,4 +183,3 @@ def runIDBA(
         with gzip.open(read + ".gz", "wb") as f:
             f.write(read)
             os.remove(read)
-    logfile.close()
