@@ -50,13 +50,19 @@ def read_fasta(fp):
 
 
 def geneCheck(
-    fastaReference,
-    resultFile,
-    cutoffEquality_prot,
-    cutoffEquality_nucl,
-    usedOwnGenBankReference,
+    fastaReference=None,
+    resultFile=None,
+    cutoffEquality_prot=None,
+    cutoffEquality_nucl=None,
+    usedOwnGenBankReference=None,
+    blasteVal=None,
+    genbank=None,
+    gapsize=None,
+    numt=None,
+    intron=None,
     organismType=2,
     alignCutOff=45,
+    out_blast=None,
 ):
     """
     Returns a tuple with 2 dictionaries, one with the features found and another with features to look for.
@@ -915,7 +921,7 @@ def createImageOfAnnotation(sequenceObject, outputFile):
     im.save(outputFile, "PNG")
 
 
-if __name__ == "__main__":
+def main():
     blasteVal = sys.argv[7]
     percent_equality_prot = sys.argv[8]
     percent_equality_nucl = sys.argv[9]
@@ -925,6 +931,7 @@ if __name__ == "__main__":
     numt = int(sys.argv[13])
     intron = int(sys.argv[14])
     tRNAscan = sys.argv[15]
+
     if sys.argv[1] == "-h" or sys.argv[1] == "--help":
         print(
             "Usage: genbank_reference fasta_file output_file organism_type(integer, default=2) alignCutOff(float, default=45) coveCutOff(7)"
@@ -958,13 +965,19 @@ if __name__ == "__main__":
             coveCutOff = 7
             print("coveCutOff was not specified, assuming 7")
         x = geneCheck(
-            fastaReference,
-            resultFile,
-            percent_equality_prot,
-            percent_equality_nucl,
-            True,
-            organismType,
-            alignCutOff,
+            fastaReference=fastaReference,
+            resultFile=resultFile,
+            cutoffEquality_prot=percent_equality_prot,
+            cutoffEquality_nucl=percent_equality_nucl,
+            usedOwnGenBankReference=True,
+            blasteVal=blasteVal,
+            genbank=genbank,
+            gapsize=gapsize,
+            numt=numt,
+            intron=intron,
+            organismType=organismType,
+            alignCutOff=alignCutOff,
+            out_blast=out_blast,
         )
         print("Features found: %s" % len(x[0]))
         print("Total features: %s" % len(x[1]))
@@ -1091,6 +1104,7 @@ if __name__ == "__main__":
                         ]
         outputFile.close()
 
+
 """			
 		outputFile=outputFile.split(".gb")[0]+'.gff'
 		outputFile=open(outputFile,"w")
@@ -1131,3 +1145,7 @@ if __name__ == "__main__":
 		outputFile.close()
 			
 """
+
+
+if __name__ == "__main__":
+    main()

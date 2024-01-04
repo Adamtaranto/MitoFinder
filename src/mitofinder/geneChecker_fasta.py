@@ -54,13 +54,15 @@ def read_fasta(fp):
 
 
 def geneCheck(
-    fastaReference,
-    resultFile,
-    cutoffEquality_prot,
-    cutoffEquality_nucl,
-    usedOwnGenBankReference,
+    fastaReference=None,
+    resultFile=None,
+    cutoffEquality_prot=None,
+    cutoffEquality_nucl=None,
+    usedOwnGenBankReference=None,
     organismType=2,
     alignCutOff=45,
+    out_blast=None,
+    blasteVal=None,
 ):
     """
     Returns a tuple with 2 dictionaries, one with the features found and another with features to look for.
@@ -516,13 +518,15 @@ def createImageOfAnnotation(sequenceObject, outputFile):
     im.save(outputFile, "PNG")
 
 
-if __name__ == "__main__":
+def main():
     blasteVal = sys.argv[7]
     percent_equality_prot = sys.argv[8]
     percent_equality_nucl = sys.argv[9]
     genbank = sys.argv[10]
     nWalk = int(sys.argv[11])
+    # This is the tool to use for tRNA search
     tRNAscan = sys.argv[12]
+
     if sys.argv[1] == "-h" or sys.argv[1] == "--help":
         print(
             "Usage: genbank_reference fasta_file output_file organism_type(integer, default=2) alignCutOff(float, default=45) coveCutOff(7)"
@@ -556,14 +560,17 @@ if __name__ == "__main__":
             coveCutOff = 7
             print("coveCutOff was not specified, assuming 7")
         x = geneCheck(
-            fastaReference,
-            resultFile,
-            percent_equality_prot,
-            percent_equality_nucl,
-            True,
-            organismType,
-            alignCutOff,
+            fastaReference=fastaReference,
+            resultFile=resultFile,
+            cutoffEquality_prot=percent_equality_prot,
+            cutoffEquality_nucl=percent_equality_nucl,
+            usedOwnGenBankReference=True,
+            organismType=organismType,
+            alignCutOff=alignCutOff,
+            out_blast=out_blast,
+            blasteVal=blasteVal,
         )
+
         print("Features found: %s" % len(x[0]))
         print("Total features: %s" % len(x[1]))
         print("")
@@ -653,7 +660,7 @@ if __name__ == "__main__":
 
         outputFile = outputFile.split(".gb")[0] + "_raw.gff"
         outputFile = open(outputFile, "w")
-        seq = SeqIO.read(open(resultFile, "rU"), "fasta")
+        seq = SeqIO.read(open(resultFile, "r"), "fasta")
         seq_name = seq.name
 
         genes = {}
@@ -715,3 +722,7 @@ if __name__ == "__main__":
 		else:
 			print("Since tRNA-Phe couldn't be found, ordered genbank file wasn't created.")
 		"""
+
+
+if __name__ == "__main__":
+    main()
