@@ -4,6 +4,7 @@ import subprocess
 from collections import Counter
 import os.path
 import logging
+from typing import List
 
 
 def is_avail(tool_names, kill=True):
@@ -20,11 +21,27 @@ def is_avail(tool_names, kill=True):
                 return False
 
 
-def check_files(file_names):
+def check_files(file_names: List[str]) -> None:
+    """
+    Check the existence of files in a list.
+
+    This function iterates through the list of file names and logs whether each file
+    exists or not. If a file is not found, it logs an error message and exits with code 1.
+
+    :param file_names: List of file names to check.
+    :type file_names: List[str]
+    :return: None
+    """
+    # Check if file_names is a list
+    if not isinstance(file_names, list):
+        raise TypeError("Input must be a list of file names.")
+
     for file_name in file_names:
+        # Check if the file_name is not an empty string and the file exists
         if file_name and os.path.exists(file_name):
             logging.info(f"File found: '{file_name}'")
         elif file_name:
+            # Log an error message and exit if the file is not found
             logging.error(f"File does not exist: '{file_name}'")
             exit(1)
 
