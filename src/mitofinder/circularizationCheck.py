@@ -102,7 +102,7 @@ def circularizationCheck(resultFile, circularSize, circularOffSet, tempdir):
 
 
 def main():
-    # Config logging which called as main.
+    # Config logging when called as main.
     logging.basicConfig(
         level=0, format="%(asctime)s:%(levelname)s:%(module)s:%(message)s"
     )
