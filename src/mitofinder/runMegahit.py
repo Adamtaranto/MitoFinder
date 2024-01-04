@@ -6,33 +6,28 @@ import shlex
 import os
 import shutil
 from shutil import copyfile
+import logging
 
 # deal with combo paired ans single reads
 # fix path to app
 
 
 def runMegahit(
-    processName="teste",
+    processName="test",
     shortestContig=100,
-    inputFile="teste.input",
+    inputFile="test.input",
     processorsToUse=4,
     refSeqFile=None,
     organismType=2,
     maxMemory="",
-    logfile="logfile",
     override=False,
 ):
-    pathToMegahit = megahitFolder
     bestBuild = None
 
-    print("Starting Assembly step with MEGAHIT ")
-    logfile = open(logfile, "a")
-    logfile.write("Starting Assembly step with MEGAHIT " + "\n")
+    logging.info("Starting Assembly step with MEGAHIT ")
 
     pathToWork = os.getcwd() + "/"
-    print("Result files will be saved here: ")
-    print(pathToWork + processName + "_megahit/")
-    logfile.write(
+    logging.info(
         "Result files will be saved here: "
         + "\n"
         + pathToWork
@@ -74,19 +69,7 @@ def runMegahit(
     out = processName + "_megahit"
     megahit = "yes"
     if os.path.isdir(out) and override == False:
-        print("\n####################################")
-        print(
-            "\n WARNING : "
-            + pathToWork
-            + out
-            + " already exists. (use --override option)"
-        )
-        print("Mitofinder will skip MEGAHIT step")
-        print(
-            "\nIf you want to run MEGAHIT again, kill the mitofinder process, remove (or use --override) or rename the MEGAHIT result folder, and restart mitofinder\n"
-        )
-        print("#####################################\n")
-        logfile.write(
+        logging.warning(
             "\n####################################"
             + "\n"
             + "\n WARNING : "
@@ -110,9 +93,8 @@ def runMegahit(
             if t == "PE":
                 if maxMemory == "":
                     command = (
-                        "%smegahit -1 %s -2 %s -o %s --out-prefix %s --min-contig-len %s -t %s"
+                        "megahit -1 %s -2 %s -o %s --out-prefix %s --min-contig-len %s -t %s"
                         % (
-                            pathToMegahit,
                             read1,
                             read2,
                             out,
@@ -123,9 +105,8 @@ def runMegahit(
                     )
                 else:
                     command = (
-                        "%smegahit -1 %s -2 %s -o %s --out-prefix %s --min-contig-len %s -t %s -m %s000000000"
+                        "megahit -1 %s -2 %s -o %s --out-prefix %s --min-contig-len %s -t %s -m %s000000000"
                         % (
-                            pathToMegahit,
                             read1,
                             read2,
                             out,
@@ -145,26 +126,16 @@ def runMegahit(
                     )
                     == True
                 ):
-                    print("\n ERROR: MEGAHIT didn't run well")
-                    print("Please check log file : " + pathToWork + "megahit.log")
-                    logfile.write(
-                        "\n ERROR: MEGAHIT didn't run well"
-                        + "\n"
-                        + "Please check log file : "
-                        + pathToWork
-                        + "megahit.log"
-                        + "\n"
-                    )
-                    exit()
+                    logging.error("\n ERROR: MEGAHIT didn't run well")
+                    exit(1)
                 # copyfile(pathToWork+"/"+out+"/"+out+".contigs.fa", pathToWork+"/"+processName+".scafSeq")
                 # check Megahit output to see if reference sequence was built
 
             if t == "SE":
                 if maxMemory == "":
                     command = (
-                        "%smegahit -r %s -o %s --out-prefix %s --min-contig-len %s -t %s"
+                        "megahit -r %s -o %s --out-prefix %s --min-contig-len %s -t %s"
                         % (
-                            pathToMegahit,
                             read1,
                             processName + "_megahit",
                             processName + "_megahit",
@@ -174,9 +145,8 @@ def runMegahit(
                     )
                 else:
                     command = (
-                        "%smegahit -r %s -o %s --out-prefix %s --min-contig-len %s -t %s -m %s000000000"
+                        "megahit -r %s -o %s --out-prefix %s --min-contig-len %s -t %s -m %s000000000"
                         % (
-                            pathToMegahit,
                             read1,
                             processName + "_megahit",
                             processName + "_megahit",
@@ -195,17 +165,6 @@ def runMegahit(
                     )
                     == True
                 ):
-                    print("\n MEGAHIT didn't run well")
-                    print("Please check log file : " + pathToWork + "megahit.log")
-                    logfile.write(
-                        "\n ERROR: MEGAHIT didn't run well"
-                        + "\n"
-                        + "Please check log file : "
-                        + pathToWork
-                        + "megahit.log"
-                        + "\n"
-                    )
-                    exit()
+                    logging.error("\n MEGAHIT didn't run well")
+                    exit(1)
                 # copyfile(pathToWork+"/"+out+"/"+out+".contigs.fa", pathToWork+"/"+processName+".scafSeq")
-
-    logfile.close()
