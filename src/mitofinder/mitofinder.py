@@ -1531,13 +1531,15 @@ def main():
             # circularizationcheck will return a tuple with (True, start, end)
             logging.info("Circularization check complete.")
 
+            # Note: seems to write to file outside of results dir ??
             resultFile = args.jobName + ".fasta"
 
             if fourthStep[0] == "True":
                 logging.info(
                     "Evidence of circularization was found!\n"
-                    + "Sequence is going to be trimmed according to circularization position."
+                    + "Trimming contig according to circularization position."
                 )
+                logging.info(f"Writing trimmed contig to: {resultFile}")
                 with open(
                     resultFile, "w"
                 ) as outputResult:  # create draft file to be checked and annotated
@@ -1548,8 +1550,9 @@ def main():
                     )  # trims according to circularization position
             else:
                 logging.info(
-                    "Evidences of circularization could not be found, but everyother step was successful."
+                    "Evidence of circularization could not be found, but every other step was successful."
                 )
+                logging.info(f"Writing contig to: {resultFile}")
                 with open(
                     resultFile, "w"
                 ) as outputResult:  # create draft file to be checked and annotated
@@ -1570,13 +1573,20 @@ def main():
                 + "_Final_Results/"
             )
             if not os.path.exists(pathOfFinalResults):
+                logging.info(f"Create dir for final results: {pathOfFinalResults}")
                 os.makedirs(pathOfFinalResults)
 
-            # creating some stat file:
-            logging.info("Creating summary statistics for the mtDNA contig")
+            # Creating summary stat file:
 
+            logging.info("Creating summary statistics for the mtDNA contig")
+            statfilename = pathOfFinalResults + args.jobName + ".infos"
+            logging.info(f"Writing summary stats to: {statfilename}")
+
+            # Load final genome as seqrecord
             finalResults = SeqIO.read(open(resultFile, "r"), "fasta")
-            finalStatsFile = open(pathOfFinalResults + args.jobName + ".infos", "w")
+
+            # Open statsfile
+            finalStatsFile = open(statfilename, "w")
 
             finalStatsFile.write(
                 "Initial contig name: " + str(finalResults.id) + "\n\n"
@@ -1957,7 +1967,7 @@ def main():
                     logging.info("tRNA annotation with Arwen run well.\n")
                 else:
                     logging.error(
-                        "ERROR: tRNA annotation failed.\nPlease check  "
+                        "ERROR: Arwen tRNA annotation failed.\nPlease check  "
                         + pathtowork
                         + "/geneChecker_error.log or geneChecker.log to see what happened\nAborting\n"
                     )
@@ -1970,7 +1980,7 @@ def main():
                     logging.info("tRNA annotation with tRNAscan-SE run well.\n")
                 else:
                     logging.error(
-                        "ERROR: tRNA annotation failed.\nPlease check  "
+                        "ERROR: tRNAscan-SE tRNA annotation failed.\nPlease check  "
                         + pathtowork
                         + "/geneChecker_error.log or geneChecker.log to see what happened\nAborting\n"
                     )
@@ -1986,7 +1996,7 @@ def main():
                     )
                 ):
                     logging.error(
-                        "ERROR: tRNA annotation failed.\nTo see what happened, please check:\n"
+                        "ERROR: MiTFi tRNA annotation failed.\nTo see what happened, please check:\n"
                         + pathtowork
                         + "/geneChecker_error.log \n"
                         + pathtowork
@@ -2069,16 +2079,23 @@ def main():
                 if not os.path.exists(pathOfFinalResults):
                     os.makedirs(pathOfFinalResults)
 
-                # creating some stat file:
+                # Creating second summary stats file for modified contig:
                 logging.info("Creating summary statistics for mtDNA contig " + str(c))
 
-                finalResults = SeqIO.read(open(resultFile, "r"), "fasta")
-                finalStatsFile = open(
+                finalStatsFileName = (
                     pathOfFinalResults
                     + args.jobName
                     + "_mtDNA_contig_"
                     + str(c)
-                    + ".infos",
+                    + ".infos"
+                )
+
+                logging.info(f"Writing summary stats to: {finalStatsFileName}")
+
+                finalResults = SeqIO.read(open(resultFile, "r"), "fasta")
+
+                finalStatsFile = open(
+                    finalStatsFileName,
                     "w",
                 )
 
