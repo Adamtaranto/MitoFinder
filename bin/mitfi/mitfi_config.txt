@@ -4,7 +4,7 @@
 ! but no not remove this file or any of the parameters!
 
 # Infernal cmsearch call
-infernalCall = ./infernal-1.0.2/src/cmsearch
+infernalCall = cmsearch
 
 # mpirun call for parallel processing of Infernal
 # only if cores > 1, otherwise leave as default
