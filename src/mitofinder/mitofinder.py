@@ -595,7 +595,7 @@ def main():
                 os.path.join(module_dir, "../../bin/arwen/")
             )
             add_to_path(pathToArwenFolder)
-            logging.info("Using bundled arwen: {pathToArwenFolder}")
+            logging.info(f"Using bundled arwen: {pathToArwenFolder}")
     elif args.tRNAannotation == "mitfi":
         if not is_avail(["mitfi.jar"], kill=False):
             pathToMitfiFolder = os.path.abspath(

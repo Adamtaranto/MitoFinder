@@ -118,6 +118,7 @@ def geneCheck(
         command = "makeblastdb -in important_features.fasta -dbtype prot"  # need to formatdb refseq first
 
         args = shlex.split(command)
+        logging.info(f"Calling: {command}")
         formatDB = Popen(args, stdout=open(os.devnull, "wb"))
         formatDB.wait()
 
@@ -145,6 +146,7 @@ def geneCheck(
                     + " -seg no"
                 )  # call BLAST with XML output
             args = shlex.split(command)
+            logging.info(f"Calling: {command}")
             blastAll = Popen(args, stdout=blastResultFile)
             blastAll.wait()
         # SearchIO object handler and checker for best hit separation
@@ -244,6 +246,7 @@ def geneCheck(
         command = "makeblastdb -in important_features.fasta -dbtype nucl"  # need to formatdb refseq first
 
         args = shlex.split(command)
+        logging.info(f"Calling: {command}")
         formatDB = Popen(args, stdout=open(os.devnull, "wb"))
         formatDB.wait()
 
@@ -269,6 +272,7 @@ def geneCheck(
                     + "-dust no"
                 )  # call BLAST with XML output
             args = shlex.split(command)
+            logging.info(f"Calling: {command}")
             blastAll = Popen(args, stdout=blastResultFile)
             blastAll.wait()
         """with open("important_features.blast2.out",'w') as blastResultFile:

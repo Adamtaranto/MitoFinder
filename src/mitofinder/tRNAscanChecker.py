@@ -244,7 +244,6 @@ def tRNAscanCheck(
     """
     Use tRNAscan-SE to look for tRNAs and hold it's positions and scores in the tRNA Class.
     """
-
     if not skipTRNA:
         module_dir = os.path.dirname(__file__)
         module_dir = os.path.abspath(os.path.join(module_dir, "../../bin"))
@@ -275,9 +274,11 @@ def tRNAscanCheck(
                 module_dir = os.path.join(module_dir, "arwen")
                 logging.info(f"Fallback to bundled Arwen: {module_dir}")
                 add_to_path(module_dir)
-                # or let mitofinder handle paths later
                 ArwenFolder = module_dir
-
+            else:
+                logging.info(f'Using arwen from: {shutil.which("arwen")}')
+                ArwenFolder = os.path.dirname(shutil.which("arwen"))
+                # or let mitofinder handle paths later
             # Set output file extension
             outputName = resultFile[0:-6] + ".arwen"
 
@@ -299,11 +300,17 @@ def tRNAscanCheck(
         elif tRNAscan == "arwen":
             try:
                 os.environ["PATH"] += os.pathsep + ArwenFolder
-                os.environ["PERL5LIB"] += os.pathsep + ArwenFolder
             except KeyError:
                 pass
             except:
                 logging.error("Error setting Arwen path.")
+
+            try:
+                os.environ["PERL5LIB"] += os.pathsep + ArwenFolder
+            except KeyError:
+                pass
+            except:
+                logging.error("Error setting Arwen PERL5LIB path.")
 
         if os.path.exists(
             outputName
@@ -341,7 +348,7 @@ def tRNAscanCheck(
                 logging.warning("MiTFi failed.")
                 return False
 
-        if tRNAscan == "trnascan":
+        elif tRNAscan == "trnascan":
             # down here, we check organism type to make tRNAscan-SE run in appropriate mode
             if buildBacteria == True:
                 organismFlag = "-B "  # bacterial
@@ -382,6 +389,7 @@ def tRNAscanCheck(
                         + scanInput
                     )
                     args = shlex.split(command)
+                    logging.info(f"Calling: {command}")
                     tRNAscanRun = Popen(args, stdout=tRNAscanLog, stderr=tRNAscanLog)
                     tRNAscanRun.wait()
 
@@ -394,6 +402,7 @@ def tRNAscanCheck(
                 return False
 
         elif tRNAscan == "arwen":
+            logging.info("Preparing Arwen command.")
             # down here, we check organism type to make ARWEN run in appropriate mode
             if buildBacteria == True:
                 geneticCode = "-gcbact "  # bacterial
@@ -419,7 +428,8 @@ def tRNAscanCheck(
             try:
                 with open("ARWEN.log", "w") as tRNAscanLog:
                     command = (
-                        "arwen "
+                        ArwenFolder
+                        + "/arwen "
                         + " "
                         + geneticCode
                         + "-o "
@@ -428,6 +438,7 @@ def tRNAscanCheck(
                         + scanInput
                     )
                     args = shlex.split(command)
+                    logging.info(f"Calling: {command}")
                     tRNAscanRun = Popen(
                         args, stdout=tRNAscanLog, stderr=tRNAscanLog
                     )  # cwd=ArwenFolder
